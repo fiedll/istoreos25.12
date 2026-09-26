@@ -33,6 +33,12 @@ fi
     /etc/init.d/uhttpd restart
 }
 
+# 确保 ttyd 登录正常
+if uci show ttyd.@ttyd[0] >/dev/null 2>&1; then
+    uci set ttyd.@ttyd[0].command='/bin/login'
+    uci commit ttyd
+fi
+
 rm -f /etc/uci-defaults/99-custom-settings
 exit 0
 EOF
@@ -49,11 +55,19 @@ CONFIG_NET_CLS_ACT=y
 CONFIG_NET_SCH_INGRESS=y
 EOF
 
-# 1. 拉取 Daed 仓库
+# 1. 彻底移除引起编译失败的官方 feed 中的 mosdns 和 v2dat
+rm -rf feeds/packages/net/mosdns feeds/packages/net/v2dat package/feeds/packages/mosdns package/feeds/packages/v2dat
+
+# 2. 拉取稳定适配的专属 mosdns 源码（包含最新核心与 luci-app-mosdns）
+rm -rf package/mosdns
+git clone --depth=1 https://github.com/sbwml/luci-app-mosdns -b v5 package/mosdns
+
+# 3. 拉取 Daed 仓库
 rm -rf package/daed
 git clone --depth=1 https://github.com/QiuSimons/luci-app-daed package/daed
 
-# 2. 拉取 PassWall 源码及其核心依赖库
+# 4. 拉取 PassWall 源码及其核心依赖库（清理 passwall 内部自带的重复包）
 rm -rf package/passwall package/passwall-packages
 git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall package/passwall
 git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall-packages package/passwall-packages
+rm -rf package/passwall-packages/mosdns package/passwall-packages/v2dat
