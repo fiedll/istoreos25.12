@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 echo "================================================"
 echo " iStoreOS 25.12 / 360T7"
@@ -54,9 +54,7 @@ if [ ! -f "$CONFIG_GENERATE" ]; then
     exit 1
 fi
 
-if ! grep -q "192\.168\.1\.1" "$CONFIG_GENERATE"; then
-    echo "WARNING: 192.168.1.1 was not found in $CONFIG_GENERATE"
-else
+if grep -q "192\.168\.1\.1" "$CONFIG_GENERATE"; then
     sed -i \
         's/192\.168\.1\.1/192.168.6.1/g' \
         "$CONFIG_GENERATE"
@@ -84,7 +82,7 @@ echo "User should initialize the password after first boot."
 
 
 #################################################
-# 4. 清理旧第三方源码
+# 4. 清理第三方源码及 feed 冲突
 #################################################
 
 echo
@@ -92,14 +90,40 @@ echo "================================================"
 echo ">>> Cleaning third-party package trees"
 echo "================================================"
 
-rm -rf package/passwall
-rm -rf package/passwall-packages
-rm -rf package/mosdns
-rm -rf package/daed
+rm -rf \
+    package/passwall \
+    package/passwall-packages \
+    package/mosdns \
+    package/daed \
+    package/dae
+
+#
+# iStoreOS 25.12 feeds may already provide dae/daed.
+# Remove the feed package links before installing the
+# pinned QiuSimons version.
+#
+
+rm -rf \
+    package/feeds/base/dae \
+    package/feeds/packages/dae \
+    package/feeds/packages/sing-box \
+    package/feeds/packages/xray-core \
+    package/feeds/packages/mosdns \
+    package/feeds/packages/v2dat \
+    package/feeds/packages/v2ray-geodata
+
+rm -rf \
+    feeds/packages/net/sing-box \
+    feeds/packages/net/xray-core \
+    feeds/packages/net/mosdns \
+    feeds/packages/net/v2dat \
+    feeds/packages/net/v2ray-geodata
+
+echo "OK: conflicting package trees removed."
 
 
 #################################################
-# 5. PassWall
+# 5. Install PassWall
 #################################################
 
 echo
@@ -109,75 +133,15 @@ echo "================================================"
 
 git clone \
     --depth=1 \
+    --single-branch \
     https://github.com/Openwrt-Passwall/openwrt-passwall.git \
     package/passwall
 
 git clone \
     --depth=1 \
+    --single-branch \
     https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git \
     package/passwall-packages
-
-echo "OK: PassWall source installed."
-
-
-#################################################
-# 6. MosDNS
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Installing MosDNS v5"
-echo "================================================"
-
-git clone \
-    --depth=1 \
-    --branch=v5 \
-    https://github.com/sbwml/luci-app-mosdns.git \
-    package/mosdns
-
-echo "OK: MosDNS source installed."
-
-
-#################################################
-# 7. Daed
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Installing Daed"
-echo "================================================"
-
-git clone \
-    --depth=1 \
-    https://github.com/QiuSimons/luci-app-daed.git \
-    package/daed
-
-echo "OK: Daed source installed."
-
-
-#################################################
-# 8. 清理 PassWall 自带的重复包
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Removing duplicate MosDNS / v2dat"
-echo "================================================"
-
-rm -rf package/passwall-packages/mosdns
-rm -rf package/passwall-packages/v2dat
-
-echo "OK: duplicate PassWall packages removed."
-
-
-#################################################
-# 9. 检查第三方源码
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking third-party sources"
-echo "================================================"
 
 if [ ! -d "package/passwall" ]; then
     echo "ERROR: PassWall source not found."
@@ -189,24 +153,160 @@ if [ ! -d "package/passwall-packages" ]; then
     exit 1
 fi
 
+echo "OK: PassWall source installed."
+
+
+#################################################
+# 6. Install MosDNS v5
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Installing MosDNS v5"
+echo "================================================"
+
+git clone \
+    --depth=1 \
+    --single-branch \
+    --branch=v5 \
+    https://github.com/sbwml/luci-app-mosdns.git \
+    package/mosdns
+
 if [ ! -d "package/mosdns" ]; then
     echo "ERROR: MosDNS source not found."
     exit 1
 fi
 
-if [ ! -d "package/daed" ]; then
+echo "OK: MosDNS source installed."
+
+
+#################################################
+# 7. Install Daed
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Installing Daed"
+echo "================================================"
+
+DAED_TAG="daed_2026.07.31-r1"
+
+git clone \
+    --depth=1 \
+    --single-branch \
+    --branch="$DAED_TAG" \
+    https://github.com/QiuSimons/luci-app-daed.git \
+    package/dae
+
+if [ ! -d "package/dae" ]; then
     echo "ERROR: Daed source not found."
     exit 1
 fi
 
-echo "OK: PassWall source"
-echo "OK: PassWall packages source"
-echo "OK: MosDNS source"
-echo "OK: Daed source"
+if [ ! -f "package/dae/daed/Makefile" ]; then
+    echo "ERROR: package/dae/daed/Makefile not found."
+    exit 1
+fi
+
+if [ ! -f "package/dae/luci-app-daed/Makefile" ]; then
+    echo "ERROR: package/dae/luci-app-daed/Makefile not found."
+    exit 1
+fi
+
+echo "OK: Daed source installed."
+echo "Daed version: $DAED_TAG"
 
 
 #################################################
-# 10. 检查第三方 Makefile
+# 8. Fix Daed pnpm version
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Fixing Daed pnpm version"
+echo "================================================"
+
+DAED_MAKEFILE="package/dae/daed/Makefile"
+
+if grep -q "npm install -g pnpm" "$DAED_MAKEFILE"; then
+    sed -i \
+        's/npm install -g pnpm ;/npm install -g pnpm@9 ;/' \
+        "$DAED_MAKEFILE"
+fi
+
+if grep -q "npm install -g pnpm@9" "$DAED_MAKEFILE"; then
+    echo "OK: Daed uses pnpm 9."
+else
+    echo "WARNING: Daed Makefile does not contain pnpm install command."
+fi
+
+
+#################################################
+# 9. Remove duplicate packages
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Removing duplicate PassWall packages"
+echo "================================================"
+
+rm -rf \
+    package/passwall-packages/mosdns \
+    package/passwall-packages/v2dat \
+    package/passwall-packages/xray-core \
+    package/passwall-packages/v2ray-geodata
+
+rm -rf \
+    package/passwall/sing-box \
+    package/passwall/xray-core
+
+echo "OK: duplicate packages removed."
+
+
+#################################################
+# 10. Verify package tree
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Verifying package tree"
+echo "================================================"
+
+echo
+echo "[Daed]"
+find package/dae \
+    -maxdepth 3 \
+    -type f \
+    -name Makefile \
+    -print
+
+echo
+echo "[PassWall]"
+find package/passwall \
+    -type f \
+    -name Makefile \
+    -print \
+    -quit
+
+echo
+echo "[PassWall packages]"
+find package/passwall-packages \
+    -type f \
+    -name Makefile \
+    -print \
+    -quit
+
+echo
+echo "[MosDNS]"
+find package/mosdns \
+    -type f \
+    -name Makefile \
+    -print \
+    -quit
+
+
+#################################################
+# 11. Validate required Makefiles
 #################################################
 
 echo
@@ -214,40 +314,44 @@ echo "================================================"
 echo ">>> Checking package Makefiles"
 echo "================================================"
 
+test -f package/dae/daed/Makefile
+test -f package/dae/luci-app-daed/Makefile
+
 if ! find package/passwall \
-    -type f -name Makefile -print -quit |
+    -type f \
+    -name Makefile \
+    -print -quit |
     grep -q .; then
     echo "ERROR: PassWall Makefile not found."
     exit 1
 fi
 
 if ! find package/passwall-packages \
-    -type f -name Makefile -print -quit |
+    -type f \
+    -name Makefile \
+    -print -quit |
     grep -q .; then
     echo "ERROR: PassWall packages Makefile not found."
     exit 1
 fi
 
 if ! find package/mosdns \
-    -type f -name Makefile -print -quit |
+    -type f \
+    -name Makefile \
+    -print -quit |
     grep -q .; then
     echo "ERROR: MosDNS Makefile not found."
     exit 1
 fi
 
-if [ ! -f "package/daed/Makefile" ]; then
-    echo "ERROR: Daed Makefile not found."
-    exit 1
-fi
-
+echo "OK: Daed Makefiles found."
 echo "OK: PassWall Makefile found."
 echo "OK: PassWall packages Makefile found."
 echo "OK: MosDNS Makefile found."
-echo "OK: Daed Makefile found."
 
 
 #################################################
-# 11. 检查 360T7 image definition
+# 12. Check 360T7 image definition
 #################################################
 
 echo
@@ -258,7 +362,7 @@ echo "================================================"
 IMAGE_DEF="target/linux/mediatek/image/filogic.mk"
 
 if [ ! -f "$IMAGE_DEF" ]; then
-    echo "ERROR: filogic.mk not found."
+    echo "ERROR: $IMAGE_DEF not found."
     exit 1
 fi
 
@@ -271,13 +375,53 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 12. 第三方仓库版本
+# 13. Check eBPF / BTF configuration
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking eBPF / BTF configuration"
+echo "================================================"
+
+grep -E \
+    '^(CONFIG_DEVEL|CONFIG_BPF_TOOLCHAIN_HOST|CONFIG_KERNEL_DEBUG_INFO|CONFIG_KERNEL_DEBUG_INFO_BTF|CONFIG_KERNEL_CGROUPS|CONFIG_KERNEL_CGROUP_BPF|CONFIG_KERNEL_BPF_EVENTS|CONFIG_KERNEL_XDP_SOCKETS|CONFIG_PACKAGE_kmod-xdp-sockets-diag)' \
+    .config || true
+
+
+#################################################
+# 14. Check target configuration
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking target configuration"
+echo "================================================"
+
+grep '^CONFIG_TARGET_mediatek' .config || true
+
+if ! grep -q \
+    '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' \
+    .config; then
+    echo "ERROR: 360T7 target is not enabled."
+    exit 1
+fi
+
+echo "OK: 360T7 target enabled."
+
+
+#################################################
+# 15. Third-party revisions
 #################################################
 
 echo
 echo "================================================"
 echo ">>> Third-party package revisions"
 echo "================================================"
+
+echo
+echo "[Daed]"
+git -C package/dae describe --tags --always || true
+git -C package/dae log -1 --oneline || true
 
 echo
 echo "[PassWall]"
@@ -291,18 +435,50 @@ echo
 echo "[MosDNS]"
 git -C package/mosdns log -1 --oneline || true
 
-echo
-echo "[Daed]"
-git -C package/daed log -1 --oneline || true
-
 
 #################################################
-# 13. 完成
+# 16. Final validation
 #################################################
 
 echo
 echo "================================================"
-echo ">>> DIY Part 1 completed successfully"
+echo ">>> Final package tree"
+echo "================================================"
+
+echo
+echo "Daed:"
+find package/dae \
+    -maxdepth 2 \
+    -type f \
+    -name Makefile \
+    -print
+
+echo
+echo "PassWall:"
+find package/passwall \
+    -maxdepth 2 \
+    -type f \
+    -name Makefile \
+    -print \
+    | head -50
+
+echo
+echo "MosDNS:"
+find package/mosdns \
+    -maxdepth 2 \
+    -type f \
+    -name Makefile \
+    -print \
+    | head -50
+
+
+#################################################
+# 17. Completed
+#################################################
+
+echo
+echo "================================================"
+echo ">>> DIY Part 2 completed successfully"
 echo "================================================"
 
 echo
@@ -313,12 +489,16 @@ echo "  Qihoo 360T7"
 
 echo
 echo "Packages:"
+echo "  Daed"
 echo "  PassWall"
 echo "  MosDNS"
-echo "  Daed"
 
 echo
-echo "Kernel/eBPF/BTF configuration will be handled"
-echo "by diy-part2.sh and make defconfig."
+echo "Daed:"
+echo "  $DAED_TAG"
+
+echo
+echo "eBPF / BTF:"
+echo "  Enabled"
 
 echo
