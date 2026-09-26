@@ -49,18 +49,24 @@ echo "================================================"
 
 CONFIG_GENERATE="package/base-files/files/bin/config_generate"
 
-if [ -f "$CONFIG_GENERATE" ]; then
+if [ ! -f "$CONFIG_GENERATE" ]; then
+    echo "ERROR: $CONFIG_GENERATE not found."
+    exit 1
+fi
 
+if ! grep -q "192\.168\.1\.1" "$CONFIG_GENERATE"; then
+    echo "WARNING: 192.168.1.1 was not found in $CONFIG_GENERATE"
+else
     sed -i \
         's/192\.168\.1\.1/192.168.6.1/g' \
         "$CONFIG_GENERATE"
+fi
 
+if grep -q "192\.168\.6\.1" "$CONFIG_GENERATE"; then
     echo "OK: LAN IP = 192.168.6.1"
-
 else
-
-    echo "WARNING: $CONFIG_GENERATE not found."
-
+    echo "ERROR: Failed to set LAN IP to 192.168.6.1"
+    exit 1
 fi
 
 
@@ -150,7 +156,7 @@ echo "OK: Daed source installed."
 
 
 #################################################
-# 8. 清理 PassWall packages 中的重复包
+# 8. 清理 PassWall 自带的重复包
 #################################################
 
 echo
@@ -160,6 +166,8 @@ echo "================================================"
 
 rm -rf package/passwall-packages/mosdns
 rm -rf package/passwall-packages/v2dat
+
+echo "OK: duplicate PassWall packages removed."
 
 
 #################################################
@@ -191,11 +199,6 @@ if [ ! -d "package/daed" ]; then
     exit 1
 fi
 
-if [ ! -f "package/daed/Makefile" ]; then
-    echo "ERROR: Daed Makefile not found."
-    exit 1
-fi
-
 echo "OK: PassWall source"
 echo "OK: PassWall packages source"
 echo "OK: MosDNS source"
@@ -203,7 +206,48 @@ echo "OK: Daed source"
 
 
 #################################################
-# 10. 检查 360T7 image definition
+# 10. 检查第三方 Makefile
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking package Makefiles"
+echo "================================================"
+
+if ! find package/passwall \
+    -type f -name Makefile -print -quit |
+    grep -q .; then
+    echo "ERROR: PassWall Makefile not found."
+    exit 1
+fi
+
+if ! find package/passwall-packages \
+    -type f -name Makefile -print -quit |
+    grep -q .; then
+    echo "ERROR: PassWall packages Makefile not found."
+    exit 1
+fi
+
+if ! find package/mosdns \
+    -type f -name Makefile -print -quit |
+    grep -q .; then
+    echo "ERROR: MosDNS Makefile not found."
+    exit 1
+fi
+
+if [ ! -f "package/daed/Makefile" ]; then
+    echo "ERROR: Daed Makefile not found."
+    exit 1
+fi
+
+echo "OK: PassWall Makefile found."
+echo "OK: PassWall packages Makefile found."
+echo "OK: MosDNS Makefile found."
+echo "OK: Daed Makefile found."
+
+
+#################################################
+# 11. 检查 360T7 image definition
 #################################################
 
 echo
@@ -224,42 +268,6 @@ if ! grep -q "Device/qihoo_360t7" "$IMAGE_DEF"; then
 fi
 
 echo "OK: 360T7 image definition found."
-
-
-#################################################
-# 11. 检查关键第三方 Makefile
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking package Makefiles"
-echo "================================================"
-
-if ! find package/passwall \
-    -type f -name Makefile -print -quit |
-    grep -q .; then
-
-    echo "ERROR: PassWall Makefile not found."
-    exit 1
-fi
-
-if ! find package/passwall-packages \
-    -type f -name Makefile -print -quit |
-    grep -q .; then
-
-    echo "ERROR: PassWall packages Makefile not found."
-    exit 1
-fi
-
-if ! find package/mosdns \
-    -type f -name Makefile -print -quit |
-    grep -q .; then
-
-    echo "ERROR: MosDNS Makefile not found."
-    exit 1
-fi
-
-echo "OK: package Makefiles found."
 
 
 #################################################
