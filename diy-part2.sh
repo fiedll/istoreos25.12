@@ -99,8 +99,8 @@ rm -rf \
 
 #
 # iStoreOS 25.12 feeds may already provide dae/daed.
-# Remove the feed package links before installing the
-# pinned QiuSimons version.
+# Remove the feed package links/directories before
+# installing the pinned QiuSimons version.
 #
 
 rm -rf \
@@ -177,6 +177,11 @@ if [ ! -d "package/mosdns" ]; then
     exit 1
 fi
 
+if [ ! -f "package/mosdns/Makefile" ]; then
+    echo "ERROR: package/mosdns/Makefile not found."
+    exit 1
+fi
+
 echo "OK: MosDNS source installed."
 
 
@@ -218,31 +223,7 @@ echo "Daed version: $DAED_TAG"
 
 
 #################################################
-# 8. Fix Daed pnpm version
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Fixing Daed pnpm version"
-echo "================================================"
-
-DAED_MAKEFILE="package/dae/daed/Makefile"
-
-if grep -q "npm install -g pnpm" "$DAED_MAKEFILE"; then
-    sed -i \
-        's/npm install -g pnpm ;/npm install -g pnpm@9 ;/' \
-        "$DAED_MAKEFILE"
-fi
-
-if grep -q "npm install -g pnpm@9" "$DAED_MAKEFILE"; then
-    echo "OK: Daed uses pnpm 9."
-else
-    echo "WARNING: Daed Makefile does not contain pnpm install command."
-fi
-
-
-#################################################
-# 9. Remove duplicate packages
+# 8. Remove duplicate packages
 #################################################
 
 echo
@@ -264,64 +245,52 @@ echo "OK: duplicate packages removed."
 
 
 #################################################
-# 10. Verify package tree
+# 9. Verify Daed package tree
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Verifying package tree"
+echo ">>> Verifying Daed package tree"
 echo "================================================"
 
 echo
-echo "[Daed]"
+echo "[Daed Makefiles]"
+
 find package/dae \
     -maxdepth 3 \
     -type f \
     -name Makefile \
     -print
 
-echo
-echo "[PassWall]"
-find package/passwall \
-    -type f \
-    -name Makefile \
-    -print \
-    -quit
+if [ ! -f "package/dae/daed/Makefile" ]; then
+    echo "ERROR: Daed backend Makefile not found."
+    exit 1
+fi
 
-echo
-echo "[PassWall packages]"
-find package/passwall-packages \
-    -type f \
-    -name Makefile \
-    -print \
-    -quit
+if [ ! -f "package/dae/luci-app-daed/Makefile" ]; then
+    echo "ERROR: Daed LuCI Makefile not found."
+    exit 1
+fi
 
-echo
-echo "[MosDNS]"
-find package/mosdns \
-    -type f \
-    -name Makefile \
-    -print \
-    -quit
+echo "OK: Daed backend Makefile found."
+echo "OK: Daed LuCI Makefile found."
 
 
 #################################################
-# 11. Validate required Makefiles
+# 10. Verify PassWall
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Checking package Makefiles"
+echo ">>> Verifying PassWall"
 echo "================================================"
-
-test -f package/dae/daed/Makefile
-test -f package/dae/luci-app-daed/Makefile
 
 if ! find package/passwall \
     -type f \
     -name Makefile \
     -print -quit |
     grep -q .; then
+
     echo "ERROR: PassWall Makefile not found."
     exit 1
 fi
@@ -331,27 +300,58 @@ if ! find package/passwall-packages \
     -name Makefile \
     -print -quit |
     grep -q .; then
+
     echo "ERROR: PassWall packages Makefile not found."
     exit 1
 fi
+
+echo "OK: PassWall Makefile found."
+echo "OK: PassWall packages Makefile found."
+
+
+#################################################
+# 11. Verify MosDNS
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Verifying MosDNS"
+echo "================================================"
 
 if ! find package/mosdns \
     -type f \
     -name Makefile \
     -print -quit |
     grep -q .; then
+
     echo "ERROR: MosDNS Makefile not found."
     exit 1
 fi
 
-echo "OK: Daed Makefiles found."
-echo "OK: PassWall Makefile found."
-echo "OK: PassWall packages Makefile found."
 echo "OK: MosDNS Makefile found."
 
 
 #################################################
-# 12. Check 360T7 image definition
+# 12. Check old feed Daed
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking old Daed feed"
+echo "================================================"
+
+if [ -e "package/feeds/base/dae" ]; then
+    echo "ERROR: old package/feeds/base/dae still exists."
+    echo "The iStoreOS feed Daed package may conflict with"
+    echo "the pinned QiuSimons Daed package."
+    exit 1
+fi
+
+echo "OK: old feed Daed removed."
+
+
+#################################################
+# 13. Check 360T7 image definition
 #################################################
 
 echo
@@ -375,20 +375,6 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 13. Check eBPF / BTF configuration
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking eBPF / BTF configuration"
-echo "================================================"
-
-grep -E \
-    '^(CONFIG_DEVEL|CONFIG_BPF_TOOLCHAIN_HOST|CONFIG_KERNEL_DEBUG_INFO|CONFIG_KERNEL_DEBUG_INFO_BTF|CONFIG_KERNEL_CGROUPS|CONFIG_KERNEL_CGROUP_BPF|CONFIG_KERNEL_BPF_EVENTS|CONFIG_KERNEL_XDP_SOCKETS|CONFIG_PACKAGE_kmod-xdp-sockets-diag)' \
-    .config || true
-
-
-#################################################
 # 14. Check target configuration
 #################################################
 
@@ -397,20 +383,95 @@ echo "================================================"
 echo ">>> Checking target configuration"
 echo "================================================"
 
-grep '^CONFIG_TARGET_mediatek' .config || true
+if [ -f ".config" ]; then
 
-if ! grep -q \
-    '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' \
-    .config; then
-    echo "ERROR: 360T7 target is not enabled."
-    exit 1
+    echo
+    echo "[Target]"
+    grep '^CONFIG_TARGET_mediatek' .config || true
+
+    if ! grep -q \
+        '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' \
+        .config; then
+
+        echo "ERROR: 360T7 target is not enabled."
+        exit 1
+    fi
+
+    echo "OK: 360T7 target enabled."
+
+else
+
+    echo "WARNING: .config does not exist yet."
+    echo "make defconfig will generate it later."
 fi
-
-echo "OK: 360T7 target enabled."
 
 
 #################################################
-# 15. Third-party revisions
+# 15. Check eBPF / BTF configuration
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking eBPF / BTF configuration"
+echo "================================================"
+
+if [ -f ".config" ]; then
+
+    grep -E \
+        '^(CONFIG_DEVEL|CONFIG_BPF_TOOLCHAIN_HOST|CONFIG_KERNEL_DEBUG_INFO|CONFIG_KERNEL_DEBUG_INFO_BTF|CONFIG_KERNEL_CGROUPS|CONFIG_KERNEL_CGROUP_BPF|CONFIG_KERNEL_BPF_EVENTS|CONFIG_KERNEL_XDP_SOCKETS|CONFIG_PACKAGE_kmod-xdp-sockets-diag)' \
+        .config \
+        || true
+
+fi
+
+
+#################################################
+# 16. Check Daed package version
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking Daed package version"
+echo "================================================"
+
+DAED_MAKEFILE="package/dae/daed/Makefile"
+
+DAED_PKG_NAME="$(
+    sed -n 's/^PKG_NAME:=//p' "$DAED_MAKEFILE" | head -n 1
+)"
+
+DAED_PKG_VERSION="$(
+    sed -n 's/^PKG_VERSION:=//p' "$DAED_MAKEFILE" | head -n 1
+)"
+
+DAED_PKG_RELEASE="$(
+    sed -n 's/^PKG_RELEASE:=//p' "$DAED_MAKEFILE" | head -n 1
+)"
+
+echo "PKG_NAME:    $DAED_PKG_NAME"
+echo "PKG_VERSION: $DAED_PKG_VERSION"
+echo "PKG_RELEASE: $DAED_PKG_RELEASE"
+
+if [ "$DAED_PKG_NAME" != "daed" ]; then
+    echo "ERROR: Unexpected Daed PKG_NAME."
+    exit 1
+fi
+
+if [ -z "$DAED_PKG_VERSION" ]; then
+    echo "ERROR: Daed PKG_VERSION is empty."
+    exit 1
+fi
+
+if [ -z "$DAED_PKG_RELEASE" ]; then
+    echo "ERROR: Daed PKG_RELEASE is empty."
+    exit 1
+fi
+
+echo "OK: Daed package metadata found."
+
+
+#################################################
+# 17. Third-party revisions
 #################################################
 
 echo
@@ -437,7 +498,7 @@ git -C package/mosdns log -1 --oneline || true
 
 
 #################################################
-# 16. Final validation
+# 18. Final package tree
 #################################################
 
 echo
@@ -446,15 +507,18 @@ echo ">>> Final package tree"
 echo "================================================"
 
 echo
-echo "Daed:"
+echo "[Daed]"
+
 find package/dae \
-    -maxdepth 2 \
+    -maxdepth 3 \
     -type f \
     -name Makefile \
     -print
 
+
 echo
-echo "PassWall:"
+echo "[PassWall]"
+
 find package/passwall \
     -maxdepth 2 \
     -type f \
@@ -462,10 +526,23 @@ find package/passwall \
     -print \
     | head -50
 
+
 echo
-echo "MosDNS:"
+echo "[PassWall packages]"
+
+find package/passwall-packages \
+    -maxdepth 3 \
+    -type f \
+    -name Makefile \
+    -print \
+    | head -100
+
+
+echo
+echo "[MosDNS]"
+
 find package/mosdns \
-    -maxdepth 2 \
+    -maxdepth 3 \
     -type f \
     -name Makefile \
     -print \
@@ -473,12 +550,12 @@ find package/mosdns \
 
 
 #################################################
-# 17. Completed
+# 19. Final summary
 #################################################
 
 echo
 echo "================================================"
-echo ">>> DIY Part 2 completed successfully"
+echo ">>> Final configuration summary"
 echo "================================================"
 
 echo
@@ -486,6 +563,10 @@ echo "Target:"
 echo "  MediaTek Filogic"
 echo "  MT7981"
 echo "  Qihoo 360T7"
+
+echo
+echo "LAN:"
+echo "  192.168.6.1"
 
 echo
 echo "Packages:"
@@ -502,3 +583,6 @@ echo "eBPF / BTF:"
 echo "  Enabled"
 
 echo
+echo "================================================"
+echo ">>> DIY Part 2 completed successfully"
+echo "================================================"
