@@ -116,8 +116,7 @@ rm -rf \
     feeds/packages/net/sing-box \
     feeds/packages/net/xray-core \
     feeds/packages/net/mosdns \
-    feeds/packages/net/v2dat \
-    feeds/packages/net/v2ray-geodata
+    feeds/packages/net/v2dat
 
 echo "OK: conflicting package trees removed."
 
