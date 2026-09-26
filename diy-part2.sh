@@ -150,7 +150,7 @@ echo "OK: Daed source installed."
 
 
 #################################################
-# 8. 清理重复包
+# 8. 清理 PassWall packages 中的重复包
 #################################################
 
 echo
@@ -160,12 +160,6 @@ echo "================================================"
 
 rm -rf package/passwall-packages/mosdns
 rm -rf package/passwall-packages/v2dat
-
-rm -rf feeds/packages/net/mosdns
-rm -rf feeds/packages/net/v2dat
-
-rm -rf package/feeds/packages/mosdns
-rm -rf package/feeds/packages/v2dat
 
 
 #################################################
@@ -233,7 +227,43 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 11. 第三方仓库版本
+# 11. 检查关键第三方 Makefile
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking package Makefiles"
+echo "================================================"
+
+if ! find package/passwall \
+    -type f -name Makefile -print -quit |
+    grep -q .; then
+
+    echo "ERROR: PassWall Makefile not found."
+    exit 1
+fi
+
+if ! find package/passwall-packages \
+    -type f -name Makefile -print -quit |
+    grep -q .; then
+
+    echo "ERROR: PassWall packages Makefile not found."
+    exit 1
+fi
+
+if ! find package/mosdns \
+    -type f -name Makefile -print -quit |
+    grep -q .; then
+
+    echo "ERROR: MosDNS Makefile not found."
+    exit 1
+fi
+
+echo "OK: package Makefiles found."
+
+
+#################################################
+# 12. 第三方仓库版本
 #################################################
 
 echo
@@ -259,7 +289,7 @@ git -C package/daed log -1 --oneline || true
 
 
 #################################################
-# 12. 完成
+# 13. 完成
 #################################################
 
 echo
