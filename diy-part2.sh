@@ -107,14 +107,12 @@ rm -rf \
     package/feeds/base/dae \
     package/feeds/packages/dae \
     package/feeds/packages/sing-box \
-    package/feeds/packages/xray-core \
     package/feeds/packages/mosdns \
     package/feeds/packages/v2dat \
     package/feeds/packages/v2ray-geodata
 
 rm -rf \
     feeds/packages/net/sing-box \
-    feeds/packages/net/xray-core \
     feeds/packages/net/mosdns \
     feeds/packages/net/v2dat
 
@@ -178,13 +176,18 @@ git clone \
 
 mkdir -p \
     package/mosdns \
-    package/luci-app-mosdns
+    package/luci-app-mosdns \
+    package/geo2txt
 
 cp -a /tmp/luci-app-mosdns/mosdns/. \
     package/mosdns/
 
 cp -a /tmp/luci-app-mosdns/luci-app-mosdns/. \
     package/luci-app-mosdns/
+
+if [ -d /tmp/luci-app-mosdns/geo2txt ]; then
+    cp -a /tmp/luci-app-mosdns/geo2txt/. package/geo2txt/
+fi
 
 rm -rf /tmp/luci-app-mosdns
 
@@ -195,6 +198,11 @@ fi
 
 if [ ! -f "package/luci-app-mosdns/Makefile" ]; then
     echo "ERROR: package/luci-app-mosdns/Makefile not found."
+    exit 1
+fi
+
+if [ ! -f "package/geo2txt/Makefile" ]; then
+    echo "ERROR: package/geo2txt/Makefile not found."
     exit 1
 fi
 
@@ -249,13 +257,10 @@ echo "================================================"
 
 rm -rf \
     package/passwall-packages/mosdns \
-    package/passwall-packages/v2dat \
-    package/passwall-packages/xray-core \
-    package/passwall-packages/v2ray-geodata
+    package/passwall-packages/v2dat
 
 rm -rf \
-    package/passwall/sing-box \
-    package/passwall/xray-core
+    package/passwall/sing-box
 
 echo "OK: duplicate packages removed."
 
