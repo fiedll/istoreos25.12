@@ -421,14 +421,29 @@ jobs:
           grep '^PKG_RELEASE:=' \
             package/dae/daed/Makefile
 
-          echo "========== Start Compile =========="
+          echo "========== Daed Build Diagnostics =========="
+
+          # Build Daed alone first, serially and verbosely.
+          # This makes the first real Daed/eBPF/Go error visible instead
+          # of hiding it behind the final generic "package/dae/daed failed".
+          make package/dae/daed/compile \
+            -j1 \
+            V=s \
+            CLANG="$CLANG_PATH" \
+            LLVM_STRIP="$LLVM_STRIP_PATH" \
+            BPF_CLANG="$CLANG_PATH" \
+            BPF_STRIP="$LLVM_STRIP_PATH"
+
+          echo "========== Start Full Compile =========="
 
           ccache --zero-stats || true
 
           make \
             -j"$(nproc)" \
             CLANG="$CLANG_PATH" \
-            LLVM_STRIP="$LLVM_STRIP_PATH"
+            LLVM_STRIP="$LLVM_STRIP_PATH" \
+            BPF_CLANG="$CLANG_PATH" \
+            BPF_STRIP="$LLVM_STRIP_PATH"
 
           echo "========== CCACHE STATS =========="
 
