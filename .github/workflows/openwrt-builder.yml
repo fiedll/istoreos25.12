@@ -57,7 +57,7 @@ jobs:
         vim wget xmlto xxd zlib1g-dev dwarves \
         clang llvm lld libclang-dev
 
-        # 确保 clang 和 llvm-strip 命令软链接存在并指向系统实际版本
+        # 确保 clang 和 llvm-strip 存在标准绝对路径软链接
         sudo ln -sf /usr/bin/clang-14 /usr/bin/clang 2>/dev/null || true
         sudo ln -sf /usr/bin/llvm-strip-14 /usr/bin/llvm-strip 2>/dev/null || true
         clang --version
@@ -138,10 +138,8 @@ jobs:
         cd openwrt
         export CCACHE_DIR=$HOME/.ccache
         export CCACHE_MAXSIZE=2G
-        export CLANG=clang
-        export LLVM_STRIP=llvm-strip
         echo "CPU Threads: $(nproc)"
-        make -j$(nproc) || make -j1 V=s
+        make -j$(nproc) CLANG=/usr/bin/clang LLVM_STRIP=/usr/bin/llvm-strip || make -j1 V=s CLANG=/usr/bin/clang LLVM_STRIP=/usr/bin/llvm-strip
 
     - name: Build Info
       run: |
