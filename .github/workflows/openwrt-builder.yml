@@ -7,44 +7,39 @@ on:
 env:
   REPO_URL: https://github.com/istoreos/istoreos
   REPO_BRANCH: istoreos-25.12
-
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
-
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
-
   TZ: Asia/Shanghai
 
 jobs:
   build:
-
     runs-on: ubuntu-22.04
-
     permissions:
       contents: write
 
     steps:
-
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Free Disk Space
+    - name: Free Disk Space & Setup Swap
       run: |
-        sudo rm -rf \
-          /usr/share/dotnet \
-          /usr/local/lib/android \
-          /opt/ghc
-
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
         sudo docker image prune -af
+        sudo swapoff -a || true
+        sudo rm -f /swapfile
+        sudo fallocate -l 6G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
 
     - name: Setup Build Environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        sudo apt update
-
-        sudo apt install -y \
+        sudo apt-get update
+        sudo apt-get install -y \
         ack antlr3 asciidoc autoconf automake autopoint \
         binutils bison build-essential bzip2 ccache cmake \
         cpio curl device-tree-compiler fastjar flex gawk \
@@ -52,25 +47,19 @@ jobs:
         haveged help2man intltool libc6-dev-i386 \
         libelf-dev libfuse-dev libglib2.0-dev \
         libgmp3-dev libltdl-dev libmpc-dev \
-        libmpfr-dev libncurses5-dev \
-        libncursesw5-dev libpython3-dev \
-        libreadline-dev libssl-dev libtool \
-        lrzsz mkisofs msmtp ninja-build \
+        libmpfr-dev libncurses5-dev libncursesw5-dev \
+        libpython3-dev libreadline-dev libssl-dev \
+        libtool lrzsz mkisofs msmtp ninja-build \
         p7zip p7zip-full patch pkgconf python3 \
         python3-pyelftools python3-setuptools \
         qemu-utils rsync scons squashfs-tools \
         subversion swig texinfo uglifyjs unzip \
         vim wget xmlto xxd zlib1g-dev dwarves
-
         sudo timedatectl set-timezone "$TZ"
 
     - name: Clone Source Code
       run: |
-        git clone \
-          --depth=1 \
-          -b $REPO_BRANCH \
-          $REPO_URL \
-          openwrt
+        git clone --depth=1 -b $REPO_BRANCH $REPO_URL openwrt
 
     - name: Cache DL
       uses: actions/cache@v4
@@ -90,101 +79,78 @@ jobs:
 
     - name: Load Custom Feeds
       run: |
+        [ -f $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
         chmod +x $DIY_P1_SH
-
         cd openwrt
-
         $GITHUB_WORKSPACE/$DIY_P1_SH
 
     - name: Update Feeds
       run: |
         cd openwrt
-
         ./scripts/feeds update -a
 
     - name: Install Feeds
       run: |
         cd openwrt
-
         ./scripts/feeds install -a
 
     - name: Load Custom Configuration
       run: |
+        [ -d files ] && mv files openwrt/files
         [ -f $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-
         chmod +x $DIY_P2_SH
-
         cd openwrt
-
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
     - name: Generate Configuration
       run: |
         cd openwrt
-
         make defconfig
-
         grep "^CONFIG_TARGET" .config || true
-
         echo "===== DEVICE ====="
-
-        grep "360t7" .config || true
+        grep "qihoo_360t7" .config || true
 
     - name: Check Packages
       run: |
         cd openwrt
-
-        find package -iname "*passwall*" || true
-        find package -iname "*daed*" || true
-        find package -iname "*mosdns*" || true
-        find package -iname "*tailscale*" || true
+        find package/ -iname "*passwall*" || true
+        find package/ -iname "*daed*" || true
+        find package/ -iname "*mosdns*" || true
+        find package/ -iname "*tailscale*" || true
 
     - name: Download Packages
       run: |
         cd openwrt
-
         make download -j$(nproc)
-
         find dl -size -1024c -exec ls -l {} \;
-
         find dl -size -1024c -exec rm -f {} \;
 
     - name: Compile Firmware
       run: |
         cd openwrt
-
         export CCACHE_DIR=$HOME/.ccache
         export CCACHE_MAXSIZE=2G
-
         echo "CPU Threads: $(nproc)"
-
         make -j$(nproc) || make -j1 V=s
 
     - name: Build Info
       run: |
         cd openwrt
-
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config \
         | sed -r 's/.*DEVICE_(.*)=y/\1/' \
         > DEVICE_NAME || true
-
-        [ -s DEVICE_NAME ] && \
-        echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
     - name: Check Firmware
       run: |
         cd openwrt
-
         ls -lh bin/targets/mediatek/filogic/
 
     - name: Organize Firmware
       run: |
         cd openwrt/bin/targets/mediatek/filogic
-
         rm -rf packages
-
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
     - name: Upload Artifact
@@ -196,9 +162,19 @@ jobs:
     - name: Generate Release Info
       id: tag
       run: |
-        echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
-
+        echo "release_tag=iStoreOS-360T7-$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
         cat > release.txt << EOF
         Device: 360T7
         Platform: MT7981 Filogic
-        Source: 
+        Source: iStoreOS 25.12
+        Build Date: $(date +"%Y-%m-%d %H:%M:%S")
+        EOF
+
+    - name: Upload Release
+      uses: softprops/action-gh-release@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: ${{ env.FIRMWARE }}/*
