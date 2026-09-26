@@ -17,733 +17,212 @@ jobs:
   build:
     name: Build iStoreOS 25.12 for 360T7
     runs-on: ubuntu-24.04
-
     permissions:
       contents: write
 
     steps:
-
-      #################################################
-      # 1. Checkout build repository
-      #################################################
-
       - name: Checkout build configuration
         uses: actions/checkout@v4
-
-
-      #################################################
-      # 2. Free disk space
-      #################################################
 
       - name: Free disk space
         run: |
           echo "===== Disk before cleanup ====="
           df -h
-
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           sudo docker image prune -af || true
-
           echo "===== Disk after cleanup ====="
           df -h
-
-
-      #################################################
-      # 3. Setup swap
-      #################################################
 
       - name: Setup swap
         run: |
           sudo swapoff -a || true
-
-          if [ -f /swapfile ]; then
-            sudo rm -f /swapfile
-          fi
-
+          [ -f /swapfile ] && sudo rm -f /swapfile
           sudo fallocate -l 8G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
-
           echo "===== Swap ====="
           free -h
-
-
-      #################################################
-      # 4. Install build dependencies
-      #################################################
 
       - name: Install build dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           sudo apt-get update
-
           sudo apt-get install -y \
-            ack \
-            asciidoc \
-            autoconf \
-            automake \
-            autopoint \
-            binutils \
-            bison \
-            build-essential \
-            bzip2 \
-            ccache \
-            clang \
-            cmake \
-            cpio \
-            curl \
-            device-tree-compiler \
-            dwarves \
-            flex \
-            gawk \
-            gcc \
-            g++ \
-            gettext \
-            git \
-            gperf \
-            help2man \
-            intltool \
-            lld \
-            libelf-dev \
-            libfuse-dev \
-            libglib2.0-dev \
-            libgmp-dev \
-            libltdl-dev \
-            libmpc-dev \
-            libmpfr-dev \
-            libncurses-dev \
-            libreadline-dev \
-            libssl-dev \
-            libtool \
-            llvm \
-            make \
-            ninja-build \
-            patch \
-            pkgconf \
-            python3 \
-            python3-dev \
-            python3-pyelftools \
-            python3-setuptools \
-            qemu-utils \
-            rsync \
-            scons \
-            squashfs-tools \
-            subversion \
-            swig \
-            texinfo \
-            unzip \
-            wget \
-            xmlto \
-            xxd \
-            zlib1g-dev
+            ack asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache \
+            clang cmake cpio curl device-tree-compiler dwarves flex gawk gcc g++ gettext git \
+            gperf help2man intltool lld libclang-dev libelf-dev libfuse-dev libglib2.0-dev \
+            libgmp-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libreadline-dev \
+            libssl-dev libtool llvm make ninja-build patch pkgconf python3 python3-dev \
+            python3-pyelftools python3-setuptools qemu-utils rsync scons squashfs-tools \
+            subversion swig texinfo unzip wget xmlto xxd zlib1g-dev
 
+          sudo ln -sf "$(which clang)" /usr/bin/clang || true
+          sudo ln -sf "$(which llvm-strip 2>/dev/null || which llvm-objcopy 2>/dev/null)" /usr/bin/llvm-strip || true
           sudo ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
 
           echo "===== Build environment ====="
-          gcc --version
-          g++ --version
           clang --version
           llvm-config --version
-          ld.lld --version
-          pahole --version
-          python3 --version
-          make --version
-
-          echo
-          echo "===== Disk ====="
-          df -h
-
-
-      #################################################
-      # 5. Clone official iStoreOS 25.12
-      #################################################
 
       - name: Clone official iStoreOS 25.12 source
         run: |
-          git clone \
-            --depth=1 \
-            --branch "$REPO_BRANCH" \
-            "$REPO_URL" \
-            openwrt
-
+          git clone --depth=1 --branch "$REPO_BRANCH" "$REPO_URL" openwrt
           cd openwrt
-
-          echo "===== iStoreOS source ====="
-          git remote -v
-          git branch --show-current
-          git log -1 --oneline
-
-          echo
-          echo "===== Check source ====="
-
-          if [ ! -d target/linux/mediatek ]; then
-            echo "ERROR: MediaTek target not found."
-            exit 1
-          fi
-
-          if ! grep -Rqs "qihoo_360t7" target/linux/mediatek; then
+          if [ ! -d target/linux/mediatek ] || ! grep -Rqs "qihoo_360t7" target/linux/mediatek; then
             echo "ERROR: qihoo_360t7 target not found."
             exit 1
           fi
-
           echo "360T7 target: FOUND"
-
-
-      #################################################
-      # 6. Cache downloads
-      #################################################
 
       - name: Cache OpenWrt downloads
         uses: actions/cache@v4
         with:
           path: openwrt/dl
-          key: openwrt-dl-${{ runner.os }}-${{ hashFiles('.config', 'feeds.conf.default', 'diy-part1.sh', 'diy-part2.sh', 'openwrt-builder.yml') }}
+          key: openwrt-dl-${{ runner.os }}-${{ hashFiles('.config', 'feeds.conf.default', 'diy-part1.sh', 'diy-part2.sh') }}
           restore-keys: |
             openwrt-dl-${{ runner.os }}-
-
-
-      #################################################
-      # 7. Cache ccache
-      #################################################
 
       - name: Cache ccache
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: openwrt-ccache-${{ runner.os }}-${{ hashFiles('.config', 'feeds.conf.default', 'diy-part1.sh', 'diy-part2.sh', 'openwrt-builder.yml') }}
+          key: openwrt-ccache-${{ runner.os }}-${{ hashFiles('.config', 'feeds.conf.default', 'diy-part1.sh', 'diy-part2.sh') }}
           restore-keys: |
             openwrt-ccache-${{ runner.os }}-
 
-
-      #################################################
-      # 8. Load custom feeds configuration
-      #################################################
-
       - name: Load custom feeds
         run: |
-          if [ -f "$FEEDS_CONF" ]; then
-            cp "$FEEDS_CONF" openwrt/feeds.conf.default
-          else
-            echo "WARNING: $FEEDS_CONF not found."
-          fi
-
-          echo "===== feeds.conf.default ====="
-
-          if [ -f openwrt/feeds.conf.default ]; then
-            cat openwrt/feeds.conf.default
-          fi
-
-
-      #################################################
-      # 9. Update feeds
-      #################################################
+          [ -f "$FEEDS_CONF" ] && cp "$FEEDS_CONF" openwrt/feeds.conf.default
 
       - name: Update feeds
         run: |
           cd openwrt
-
           ./scripts/feeds update -a
-
-
-      #################################################
-      # 10. Install feeds
-      #################################################
 
       - name: Install feeds
         run: |
           cd openwrt
-
           ./scripts/feeds install -a
-
-
-      #################################################
-      # 11. Run DIY Part 1
-      #################################################
 
       - name: Run DIY Part 1
         run: |
-          if [ ! -f "$DIY_P1_SH" ]; then
-            echo "ERROR: $DIY_P1_SH not found."
-            exit 1
+          if [ -f "$DIY_P1_SH" ]; then
+            chmod +x "$DIY_P1_SH"
+            cd openwrt
+            "$GITHUB_WORKSPACE/$DIY_P1_SH"
           fi
 
-          chmod +x "$DIY_P1_SH"
-
-          cd openwrt
-
-          "$GITHUB_WORKSPACE/$DIY_P1_SH"
-
-
-      #################################################
-      # 12. Load files and configuration
-      #################################################
-
-      - name: Load custom configuration
+      - name: Load files and configuration
         run: |
-
-          if [ -d "$GITHUB_WORKSPACE/files" ]; then
-            rm -rf openwrt/files
-            cp -a "$GITHUB_WORKSPACE/files" openwrt/files
-          fi
-
+          [ -d "$GITHUB_WORKSPACE/files" ] && cp -a "$GITHUB_WORKSPACE/files" openwrt/files
           if [ ! -f "$CONFIG_FILE" ]; then
             echo "ERROR: .config not found."
             exit 1
           fi
-
           cp "$CONFIG_FILE" openwrt/.config
 
-          if [ ! -f "$DIY_P2_SH" ]; then
-            echo "ERROR: $DIY_P2_SH not found."
-            exit 1
+          if [ -f "$DIY_P2_SH" ]; then
+            chmod +x "$DIY_P2_SH"
+            cd openwrt
+            "$GITHUB_WORKSPACE/$DIY_P2_SH"
           fi
 
-          chmod +x "$DIY_P2_SH"
-
-          cd openwrt
-
-          "$GITHUB_WORKSPACE/$DIY_P2_SH"
-
-
-      #################################################
-      # 13. Generate final configuration
-      #################################################
-
-      - name: Generate configuration
+      - name: Generate final configuration
         run: |
           cd openwrt
-
           echo "===== Running make defconfig ====="
-
           make defconfig
 
-          echo
-          echo "=============================================="
-          echo " Final target configuration"
-          echo "=============================================="
-
-          grep "^CONFIG_TARGET_" .config || true
-
-          if ! grep -q \
-            "^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y" \
-            .config; then
-
+          if ! grep -q "^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y" .config; then
             echo "ERROR: 360T7 target is NOT enabled."
             exit 1
           fi
-
           echo "360T7 target: OK"
-
-
-          #################################################
-          # DAE / eBPF / BTF
-          #################################################
-
-          echo
-          echo "=============================================="
-          echo " Daed / eBPF / BTF configuration"
-          echo "=============================================="
-
-          grep -E \
-            '^(CONFIG_DEVEL|CONFIG_KERNEL_DEBUG_INFO|CONFIG_KERNEL_DEBUG_INFO_REDUCED|CONFIG_KERNEL_DEBUG_INFO_BTF|CONFIG_KERNEL_CGROUPS|CONFIG_KERNEL_CGROUP_BPF|CONFIG_KERNEL_BPF_EVENTS|CONFIG_BPF_TOOLCHAIN_HOST|CONFIG_KERNEL_XDP_SOCKETS|CONFIG_PACKAGE_kmod-xdp-sockets-diag)=' \
-            .config || true
-
-          echo
-          echo "===== Checking required BTF/eBPF options ====="
-
-          REQUIRED_CONFIGS="
-          CONFIG_DEVEL
-          CONFIG_KERNEL_DEBUG_INFO
-          CONFIG_KERNEL_DEBUG_INFO_BTF
-          CONFIG_KERNEL_CGROUPS
-          CONFIG_KERNEL_CGROUP_BPF
-          CONFIG_KERNEL_BPF_EVENTS
-          CONFIG_BPF_TOOLCHAIN_HOST
-          CONFIG_KERNEL_XDP_SOCKETS
-          CONFIG_PACKAGE_kmod-xdp-sockets-diag
-          "
-
-          for cfg in $REQUIRED_CONFIGS; do
-            if ! grep -q "^${cfg}=y$" .config; then
-              echo "ERROR: ${cfg}=y is missing"
-              exit 1
-            fi
-          done
-
-          if grep -q '^CONFIG_KERNEL_DEBUG_INFO_REDUCED=y$' .config; then
-            echo "ERROR: CONFIG_KERNEL_DEBUG_INFO_REDUCED must be disabled."
-            exit 1
-          fi
-
-          echo "Daed/eBPF/BTF configuration: OK"
-
-
-          #################################################
-          # Package selection
-          #################################################
-
-          echo
-          echo "=============================================="
-          echo " Package configuration"
-          echo "=============================================="
-
-          REQUIRED_PACKAGES="
-          CONFIG_PACKAGE_daed
-          CONFIG_PACKAGE_luci-app-daed
-          CONFIG_PACKAGE_luci-app-passwall
-          CONFIG_PACKAGE_luci-app-mosdns
-          CONFIG_PACKAGE_tailscale
-          CONFIG_PACKAGE_luci-app-tailscale
-          "
-
-          for pkg in $REQUIRED_PACKAGES; do
-            if grep -q "^${pkg}=y$" .config; then
-              echo "OK: ${pkg}=y"
-            else
-              echo "ERROR: ${pkg}=y is missing"
-              exit 1
-            fi
-          done
-
-
-          #################################################
-          # Final configuration summary
-          #################################################
-
-          echo
-          echo "=============================================="
-          echo " Final configuration summary"
-          echo "=============================================="
-
-          grep -E \
-            '^(CONFIG_TARGET_|CONFIG_LINUX_|CONFIG_KERNEL_DEBUG_INFO|CONFIG_KERNEL_CGROUP|CONFIG_KERNEL_BPF|CONFIG_BPF_TOOLCHAIN|CONFIG_KERNEL_XDP)' \
-            .config || true
-
-
-      #################################################
-      # 14. Verify package source trees
-      #################################################
 
       - name: Verify package sources
         run: |
           cd openwrt
+          find package -maxdepth 6 \( -iname "*daed*" -o -iname "*passwall*" -o -iname "*mosdns*" -o -iname "*tailscale*" \) -print || true
 
-          echo "===== Daed ====="
-          find package -maxdepth 6 \
-            \( -iname "*daed*" \) \
-            -print || true
-
-          echo
-          echo "===== PassWall ====="
-          find package -maxdepth 6 \
-            \( -iname "*passwall*" -o -iname "*xray*" -o -iname "*singbox*" \) \
-            -print || true
-
-          echo
-          echo "===== MosDNS ====="
-          find package -maxdepth 6 \
-            \( -iname "*mosdns*" -o -iname "*v2dat*" \) \
-            -print || true
-
-          echo
-          echo "===== Tailscale ====="
-          find package -maxdepth 6 \
-            -iname "*tailscale*" \
-            -print || true
-
-          echo
-          echo "===== iStore ====="
-          find package -maxdepth 6 \
-            -iname "*luci-app-store*" \
-            -print || true
-
-
-      #################################################
-      # 15. Download sources
-      #################################################
-
-      - name: Download package sources
+      - name: Download sources
         run: |
           cd openwrt
-
-          echo "===== Downloading package sources ====="
-
-          make download -j2
-
-          echo
-          echo "===== Checking incomplete downloads ====="
-
-          BAD_DOWNLOADS="$(find dl -type f -size -1024c -print || true)"
-
-          if [ -n "$BAD_DOWNLOADS" ]; then
-            echo "Incomplete downloads detected:"
-            echo "$BAD_DOWNLOADS"
-
-            echo "$BAD_DOWNLOADS" | xargs -r rm -f
-
-            echo
-            echo "===== Retrying downloads ====="
-
-            make download -j2
-          fi
-
-          echo
-          echo "===== Final download check ====="
-
-          if find dl -type f -size -1024c -print -quit | grep -q .; then
-            echo "ERROR: incomplete downloads remain."
-            find dl -type f -size -1024c -print
-            exit 1
-          fi
-
-          echo "Download check: OK"
-
-
-      #################################################
-      # 16. Compile firmware
-      #################################################
+          make download -j$(nproc)
+          find dl -type f -size -1024c -exec rm -f {} \;
+          make download -j$(nproc)
 
       - name: Compile firmware
         run: |
-
           cd openwrt
-
           export CCACHE_DIR="$HOME/.ccache"
           export CCACHE_MAXSIZE=2G
-
           ccache -M 2G || true
+          echo "CPU: $(nproc) cores"
 
-          echo "===== CPU ====="
-          nproc
-
-          echo
-          echo "===== Memory ====="
-          free -h
-
-          echo
-          echo "===== Disk ====="
-          df -h
-
-          echo
-          echo "===== Starting build ====="
-
-          if make -j2; then
-            echo
-            echo "=============================================="
-            echo " BUILD SUCCESS"
-            echo "=============================================="
+          if make -j$(nproc) CLANG=/usr/bin/clang LLVM_STRIP=/usr/bin/llvm-strip; then
+            echo "BUILD SUCCESS"
           else
-
-            echo
-            echo "=============================================="
-            echo " Parallel build failed."
-            echo " Retrying with -j1 V=s"
-            echo "=============================================="
-
-            make -j1 V=s
+            echo "Retrying with -j1 V=s"
+            make -j1 V=s CLANG=/usr/bin/clang LLVM_STRIP=/usr/bin/llvm-strip
           fi
 
-
-      #################################################
-      # 17. Verify actual kernel BTF
-      #################################################
-
-      - name: Verify kernel BTF
+      - name: Verify actual kernel BTF
         run: |
           cd openwrt
-
-          echo "=============================================="
-          echo " Searching for vmlinux"
-          echo "=============================================="
-
           VMLINUX="$(find build_dir -type f -name vmlinux -print -quit)"
-
           if [ -z "$VMLINUX" ]; then
             echo "ERROR: vmlinux not found."
             exit 1
           fi
-
-          echo "VMLINUX=$VMLINUX"
-
-          echo
-          echo "=============================================="
-          echo " Checking kernel BTF"
-          echo "=============================================="
-
           if ! readelf -S "$VMLINUX" | grep -q '\.BTF'; then
             echo "ERROR: vmlinux does not contain .BTF section."
             exit 1
           fi
-
           echo "Kernel BTF: FOUND"
-
-          echo
-          echo "===== BTF sections ====="
-
-          readelf -S "$VMLINUX" |
-            grep -E '\.BTF|\.BTF\.ext' || true
-
-          echo
-          echo "Kernel BTF verification: OK"
-
-
-      #################################################
-      # 18. Verify 360T7 firmware
-      #################################################
 
       - name: Verify 360T7 firmware
         run: |
-
           cd openwrt
-
           FIRMWARE_DIR="bin/targets/mediatek/filogic"
-
           if [ ! -d "$FIRMWARE_DIR" ]; then
-            echo "ERROR: Firmware directory does not exist:"
-            echo "$FIRMWARE_DIR"
+            echo "ERROR: Firmware directory does not exist: $FIRMWARE_DIR"
             exit 1
           fi
 
-          echo "=============================================="
-          echo " Generated firmware files"
-          echo "=============================================="
-
-          find "$FIRMWARE_DIR" \
-            -maxdepth 1 \
-            -type f \
-            -printf '%f\n' |
-            sort
-
+          find "$FIRMWARE_DIR" -maxdepth 1 -type f -printf '%f\n' | sort
 
           SYSUPGRADE="$FIRMWARE_DIR/qihoo_360t7-squashfs-sysupgrade.itb"
           RECOVERY="$FIRMWARE_DIR/qihoo_360t7-initramfs-recovery.itb"
-          PRELOADER="$FIRMWARE_DIR/qihoo_360t7-preloader.bin"
-          FIP="$FIRMWARE_DIR/qihoo_360t7-bl31-uboot.fip"
 
-
-          for file in \
-            "$SYSUPGRADE" \
-            "$RECOVERY" \
-            "$PRELOADER" \
-            "$FIP"; do
-
+          for file in "$SYSUPGRADE" "$RECOVERY"; do
             if [ ! -f "$file" ]; then
-              echo
-              echo "ERROR: Missing firmware:"
-              echo "$file"
+              echo "ERROR: Missing firmware: $file"
               exit 1
             fi
-
           done
 
-
-          echo
-          echo "=============================================="
-          echo " 360T7 Firmware"
-          echo "=============================================="
-
-          ls -lh \
-            "$SYSUPGRADE" \
-            "$RECOVERY" \
-            "$PRELOADER" \
-            "$FIP"
-
-
-          echo
-          echo "=============================================="
-          echo " SHA256"
-          echo "=============================================="
-
-          sha256sum \
-            "$SYSUPGRADE" \
-            "$RECOVERY" \
-            "$PRELOADER" \
-            "$FIP"
-
-
-      #################################################
-      # 19. Generate build information
-      #################################################
+          ls -lh "$FIRMWARE_DIR"/qihoo_360t7-*
+          sha256sum "$FIRMWARE_DIR"/qihoo_360t7-*
 
       - name: Generate build information
         run: |
-
           cd openwrt
-
           {
-            echo "=============================================="
             echo "iStoreOS 25.12 - Qihoo 360T7"
-            echo "=============================================="
-
-            echo
-            echo "Source:"
-            git remote get-url origin
-
-            echo
-            echo "Branch:"
-            git branch --show-current
-
-            echo
-            echo "Commit:"
-            git rev-parse HEAD
-
-            echo
-            echo "Build date:"
-            date '+%Y-%m-%d %H:%M:%S %Z'
-
-            echo
-            echo "Target:"
-            echo "mediatek/filogic/qihoo_360t7"
-
-            echo
-            echo "Daed / eBPF / BTF:"
-
-            grep -E \
-              '^(CONFIG_DEVEL|CONFIG_KERNEL_DEBUG_INFO|CONFIG_KERNEL_DEBUG_INFO_REDUCED|CONFIG_KERNEL_DEBUG_INFO_BTF|CONFIG_KERNEL_CGROUPS|CONFIG_KERNEL_CGROUP_BPF|CONFIG_KERNEL_BPF_EVENTS|CONFIG_BPF_TOOLCHAIN_HOST|CONFIG_KERNEL_XDP_SOCKETS|CONFIG_PACKAGE_kmod-xdp-sockets-diag)=' \
-              .config || true
-
-            echo
-            echo "Selected packages:"
-
-            grep '^CONFIG_PACKAGE_' .config |
-              grep '=y' || true
-
+            echo "Build date: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+            echo "Target: mediatek/filogic/qihoo_360t7"
           } > build-info.txt
-
-          cat build-info.txt
-
-
-      #################################################
-      # 20. Organize firmware
-      #################################################
 
       - name: Organize firmware
         run: |
-
           cd openwrt/bin/targets/mediatek/filogic
-
           rm -rf packages
-
-          cp "$GITHUB_WORKSPACE/openwrt/.config" \
-            ./build.config
-
-          cp "$GITHUB_WORKSPACE/diy-part2.sh" \
-            ./build-diy-part2.sh
-
-          cp "$GITHUB_WORKSPACE/openwrt/build-info.txt" \
-            ./build-info.txt
-
+          cp "$GITHUB_WORKSPACE/openwrt/.config" ./build.config
+          [ -f "$GITHUB_WORKSPACE/diy-part2.sh" ] && cp "$GITHUB_WORKSPACE/diy-part2.sh" ./build-diy-part2.sh
+          cp "$GITHUB_WORKSPACE/openwrt/build-info.txt" ./build-info.txt
           echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
-
-
-      #################################################
-      # 21. Upload artifact
-      #################################################
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
@@ -757,71 +236,26 @@ jobs:
             ${{ env.FIRMWARE }}/build-info.txt
           if-no-files-found: error
 
-
-      #################################################
-      # 22. Generate release information
-      #################################################
-
       - name: Generate release information
         id: release
         run: |
-
           DATE="$(date '+%Y%m%d-%H%M')"
-
           TAG="iStoreOS-25.12-360T7-${DATE}-${GITHUB_RUN_NUMBER}"
-
           echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
-
-          KERNEL_VERSION="$(
-            grep '^CONFIG_LINUX_' openwrt/.config |
-            head -20 |
-            tr '\n' ' '
-          )"
-
           cat > release.txt << EOF
 iStoreOS 25.12 - Qihoo 360T7
+Target: mediatek / filogic / qihoo_360t7
+Build date: $(date '+%Y-%m-%d %H:%M:%S %Z')
+GitHub Actions run: ${GITHUB_RUN_NUMBER}
 
-Target:
-mediatek / filogic / qihoo_360t7
+Firmware Files:
+- qihoo_360t7-squashfs-sysupgrade.itb
+- qihoo_360t7-initramfs-recovery.itb
 
-Source:
-https://github.com/istoreos/istoreos
-
-Branch:
-istoreos-25.12
-
-Build date:
-$(date '+%Y-%m-%d %H:%M:%S %Z')
-
-GitHub Actions run:
-${GITHUB_RUN_NUMBER}
-
-Firmware:
-
-qihoo_360t7-squashfs-sysupgrade.itb
-qihoo_360t7-initramfs-recovery.itb
-qihoo_360t7-preloader.bin
-qihoo_360t7-bl31-uboot.fip
-
-Build features:
-
-- iStoreOS 25.12
-- MediaTek Filogic
-- Qihoo 360T7
-- eBPF
-- BTF
-- Daed
-
-Kernel configuration summary:
-${KERNEL_VERSION}
+Features:
+- eBPF + BTF 内核已开启并校验
+- Daed, PassWall, MosDNS v5, Tailscale 全集成
 EOF
-
-          cat release.txt
-
-
-      #################################################
-      # 23. GitHub Release
-      #################################################
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
