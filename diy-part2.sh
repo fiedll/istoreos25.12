@@ -4,7 +4,7 @@ set -e
 
 echo "================================================"
 echo " iStoreOS 25.12 / 360T7"
-echo " Daed + eBPF + BTF build configuration"
+echo " Daed + PassWall + MosDNS"
 echo "================================================"
 
 echo
@@ -43,7 +43,9 @@ echo "OK: qihoo_360t7 target found."
 #################################################
 
 echo
-echo ">>> Setting LAN IP to 192.168.6.1"
+echo "================================================"
+echo ">>> Setting LAN IP"
+echo "================================================"
 
 CONFIG_GENERATE="package/base-files/files/bin/config_generate"
 
@@ -57,25 +59,26 @@ if [ -f "$CONFIG_GENERATE" ]; then
 
 else
 
-    echo "WARNING:"
-    echo "$CONFIG_GENERATE not found."
+    echo "WARNING: $CONFIG_GENERATE not found."
 
 fi
 
 
 #################################################
-# 3. 不设置固定 root 密码
+# 3. Root password
 #################################################
 
 echo
+echo "================================================"
 echo ">>> Root password"
-echo
+echo "================================================"
+
 echo "No hard-coded root password will be installed."
 echo "User should initialize the password after first boot."
 
 
 #################################################
-# 4. 清理第三方包目录
+# 4. 清理旧第三方源码
 #################################################
 
 echo
@@ -108,6 +111,8 @@ git clone \
     https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git \
     package/passwall-packages
 
+echo "OK: PassWall source installed."
+
 
 #################################################
 # 6. MosDNS
@@ -124,6 +129,8 @@ git clone \
     https://github.com/sbwml/luci-app-mosdns.git \
     package/mosdns
 
+echo "OK: MosDNS source installed."
+
 
 #################################################
 # 7. Daed
@@ -138,6 +145,8 @@ git clone \
     --depth=1 \
     https://github.com/QiuSimons/luci-app-daed.git \
     package/daed
+
+echo "OK: Daed source installed."
 
 
 #################################################
@@ -160,14 +169,31 @@ rm -rf package/feeds/packages/v2dat
 
 
 #################################################
-# 9. 检查 Daed
+# 9. 检查第三方源码
 #################################################
 
 echo
-echo ">>> Checking Daed source"
+echo "================================================"
+echo ">>> Checking third-party sources"
+echo "================================================"
+
+if [ ! -d "package/passwall" ]; then
+    echo "ERROR: PassWall source not found."
+    exit 1
+fi
+
+if [ ! -d "package/passwall-packages" ]; then
+    echo "ERROR: PassWall packages source not found."
+    exit 1
+fi
+
+if [ ! -d "package/mosdns" ]; then
+    echo "ERROR: MosDNS source not found."
+    exit 1
+fi
 
 if [ ! -d "package/daed" ]; then
-    echo "ERROR: Daed source was not cloned."
+    echo "ERROR: Daed source not found."
     exit 1
 fi
 
@@ -176,76 +202,14 @@ if [ ! -f "package/daed/Makefile" ]; then
     exit 1
 fi
 
-echo "Daed source: OK"
+echo "OK: PassWall source"
+echo "OK: PassWall packages source"
+echo "OK: MosDNS source"
+echo "OK: Daed source"
 
 
 #################################################
-# 10. 检查 Daed kernel configuration
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking Daed kernel configuration"
-echo "================================================"
-
-check_config()
-{
-    SYMBOL="$1"
-
-    if grep -q "^${SYMBOL}=y" .config; then
-        echo "OK   ${SYMBOL}=y"
-    else
-        echo "FAIL ${SYMBOL} is not enabled"
-        return 1
-    fi
-}
-
-check_config CONFIG_KERNEL_DEBUG_INFO
-check_config CONFIG_KERNEL_DEBUG_INFO_BTF
-check_config CONFIG_KERNEL_CGROUPS
-check_config CONFIG_KERNEL_CGROUP_BPF
-check_config CONFIG_KERNEL_BPF_EVENTS
-check_config CONFIG_BPF_TOOLCHAIN_HOST
-check_config CONFIG_KERNEL_XDP_SOCKETS
-
-
-#################################################
-# 11. BTF 不能使用 reduced debug info
-#################################################
-
-echo
-echo ">>> Checking reduced debug information"
-
-if grep -q "^CONFIG_KERNEL_DEBUG_INFO_REDUCED=y" .config; then
-
-    echo "ERROR:"
-    echo "CONFIG_KERNEL_DEBUG_INFO_REDUCED=y"
-    echo
-    echo "Daed requires full debug information for BTF."
-    exit 1
-
-fi
-
-echo "OK: reduced debug information disabled."
-
-
-#################################################
-# 12. 检查 XDP sockets module
-#################################################
-
-echo
-echo ">>> Checking XDP sockets module"
-
-if grep -q "^CONFIG_PACKAGE_kmod-xdp-sockets-diag=y" .config; then
-    echo "OK: kmod-xdp-sockets-diag"
-else
-    echo "ERROR: kmod-xdp-sockets-diag is missing."
-    exit 1
-fi
-
-
-#################################################
-# 13. 检查 360T7 image definition
+# 10. 检查 360T7 image definition
 #################################################
 
 echo
@@ -269,7 +233,7 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 14. 打印第三方仓库版本
+# 11. 第三方仓库版本
 #################################################
 
 echo
@@ -295,12 +259,12 @@ git -C package/daed log -1 --oneline || true
 
 
 #################################################
-# 15. 完成
+# 12. 完成
 #################################################
 
 echo
 echo "================================================"
-echo ">>> DIY Part 2 completed successfully"
+echo ">>> DIY Part 1 completed successfully"
 echo "================================================"
 
 echo
@@ -310,15 +274,13 @@ echo "  MT7981"
 echo "  Qihoo 360T7"
 
 echo
-echo "Daed:"
-echo "  enabled"
+echo "Packages:"
+echo "  PassWall"
+echo "  MosDNS"
+echo "  Daed"
 
 echo
-echo "BTF:"
-echo "  enabled"
-
-echo
-echo "eBPF:"
-echo "  enabled"
+echo "Kernel/eBPF/BTF configuration will be handled"
+echo "by diy-part2.sh and make defconfig."
 
 echo
