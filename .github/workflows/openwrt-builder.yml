@@ -2,6 +2,9 @@ name: iStoreOS-360T7
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 env:
   REPO_URL: https://github.com/istoreos/istoreos
@@ -158,8 +161,6 @@ jobs:
           fi
 
           CLANG_PATH="$(readlink -f "$CLANG_PATH")"
-          LLVM_STRIP_PATH="$(readlink -f "$LLVM_STRIP_PATH")"
-
           if [ ! -x "$CLANG_PATH" ]; then
             echo "ERROR: resolved clang path is not executable: $CLANG_PATH"
             exit 1
@@ -426,8 +427,8 @@ jobs:
 
           make \
             -j"$(nproc)" \
-            CLANG=/usr/bin/clang \
-            LLVM_STRIP=/usr/bin/llvm-strip
+            CLANG="$CLANG_PATH" \
+            LLVM_STRIP="$LLVM_STRIP_PATH"
 
           echo "========== CCACHE STATS =========="
 
