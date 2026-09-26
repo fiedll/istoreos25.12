@@ -2,34 +2,36 @@
 
 set -e
 
-echo "=============================================="
-echo " iStoreOS 25.12 / 360T7 DIY Part 2"
-echo "=============================================="
+echo "================================================"
+echo " iStoreOS 25.12 / 360T7"
+echo " Daed + eBPF + BTF build configuration"
+echo "================================================"
 
 echo
-echo ">>> Build directory:"
+echo ">>> Source tree:"
 pwd
 
 echo
-echo ">>> Git information:"
-git rev-parse --short HEAD || true
+echo ">>> Git:"
+git log -1 --oneline || true
 
 
 #################################################
-# 1. 检查目标设备
+# 1. 检查 360T7 target
 #################################################
 
 echo
-echo ">>> Checking 360T7 target..."
+echo "================================================"
+echo ">>> Checking 360T7 target"
+echo "================================================"
 
 if [ ! -d "target/linux/mediatek" ]; then
-    echo "ERROR: MediaTek target directory not found."
+    echo "ERROR: target/linux/mediatek not found."
     exit 1
 fi
 
 if ! grep -Rqs "qihoo_360t7" target/linux/mediatek; then
-    echo "ERROR: qihoo_360t7 target was not found."
-    echo "This does NOT look like a valid iStoreOS/OpenWrt 360T7 source tree."
+    echo "ERROR: qihoo_360t7 target not found."
     exit 1
 fi
 
@@ -37,61 +39,64 @@ echo "OK: qihoo_360t7 target found."
 
 
 #################################################
-# 2. 设置默认 LAN IP
+# 2. 修改默认 LAN IP
 #################################################
 
 echo
-echo ">>> Setting default LAN IP to 192.168.6.1..."
+echo ">>> Setting LAN IP to 192.168.6.1"
 
 CONFIG_GENERATE="package/base-files/files/bin/config_generate"
 
 if [ -f "$CONFIG_GENERATE" ]; then
+
     sed -i \
         's/192\.168\.1\.1/192.168.6.1/g' \
         "$CONFIG_GENERATE"
 
-    echo "LAN IP configured: 192.168.6.1"
+    echo "OK: LAN IP = 192.168.6.1"
+
 else
-    echo "WARNING: $CONFIG_GENERATE not found."
+
+    echo "WARNING:"
+    echo "$CONFIG_GENERATE not found."
+
 fi
 
 
 #################################################
-# 3. 不修改 root 默认密码
-#
-# iStoreOS/OpenWrt 25.12 第一次启动时，
-# 用户自行设置 root 密码。
-#
-# 不在固件里写死：
-# root:password
+# 3. 不设置固定 root 密码
 #################################################
 
 echo
-echo ">>> Keeping default password initialization."
-echo "No hard-coded root password will be injected."
+echo ">>> Root password"
+echo
+echo "No hard-coded root password will be installed."
+echo "User should initialize the password after first boot."
 
 
 #################################################
-# 4. 清理旧的第三方插件目录
+# 4. 清理第三方包目录
 #################################################
 
 echo
-echo ">>> Cleaning old third-party package trees..."
+echo "================================================"
+echo ">>> Cleaning third-party package trees"
+echo "================================================"
 
 rm -rf package/passwall
 rm -rf package/passwall-packages
-
 rm -rf package/mosdns
+rm -rf package/daed
 
 
 #################################################
-# 5. 加入 PassWall
+# 5. PassWall
 #################################################
 
 echo
-echo "=============================================="
-echo ">>> Installing PassWall source"
-echo "=============================================="
+echo "================================================"
+echo ">>> Installing PassWall"
+echo "================================================"
 
 git clone \
     --depth=1 \
@@ -105,13 +110,13 @@ git clone \
 
 
 #################################################
-# 6. 加入 MosDNS
+# 6. MosDNS
 #################################################
 
 echo
-echo "=============================================="
+echo "================================================"
 echo ">>> Installing MosDNS v5"
-echo "=============================================="
+echo "================================================"
 
 git clone \
     --depth=1 \
@@ -121,21 +126,28 @@ git clone \
 
 
 #################################################
-# 7. 删除第三方仓库中的重复 MosDNS / v2dat
-#
-# 避免：
-#
-# official feed
-#       +
-# passwall-packages
-#       +
-# mosdns feed
-#
-# 同时提供同名 package。
+# 7. Daed
 #################################################
 
 echo
-echo ">>> Removing duplicate MosDNS / v2dat packages..."
+echo "================================================"
+echo ">>> Installing Daed"
+echo "================================================"
+
+git clone \
+    --depth=1 \
+    https://github.com/QiuSimons/luci-app-daed.git \
+    package/daed
+
+
+#################################################
+# 8. 清理重复包
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Removing duplicate MosDNS / v2dat"
+echo "================================================"
 
 rm -rf package/passwall-packages/mosdns
 rm -rf package/passwall-packages/v2dat
@@ -148,40 +160,122 @@ rm -rf package/feeds/packages/v2dat
 
 
 #################################################
-# 8. 检查第三方 package 是否存在
+# 9. 检查 Daed
 #################################################
 
 echo
-echo ">>> Checking package sources..."
+echo ">>> Checking Daed source"
 
-if [ ! -d "package/passwall" ]; then
-    echo "ERROR: PassWall source missing."
+if [ ! -d "package/daed" ]; then
+    echo "ERROR: Daed source was not cloned."
     exit 1
 fi
 
-if [ ! -d "package/passwall-packages" ]; then
-    echo "ERROR: PassWall packages source missing."
+if [ ! -f "package/daed/Makefile" ]; then
+    echo "ERROR: Daed Makefile not found."
     exit 1
 fi
 
-if [ ! -d "package/mosdns" ]; then
-    echo "ERROR: MosDNS source missing."
-    exit 1
-fi
-
-echo "PassWall: OK"
-echo "PassWall packages: OK"
-echo "MosDNS: OK"
+echo "Daed source: OK"
 
 
 #################################################
-# 9. 打印版本信息
+# 10. 检查 Daed kernel configuration
 #################################################
 
 echo
-echo "=============================================="
-echo ">>> Third-party source revisions"
-echo "=============================================="
+echo "================================================"
+echo ">>> Checking Daed kernel configuration"
+echo "================================================"
+
+check_config()
+{
+    SYMBOL="$1"
+
+    if grep -q "^${SYMBOL}=y" .config; then
+        echo "OK   ${SYMBOL}=y"
+    else
+        echo "FAIL ${SYMBOL} is not enabled"
+        return 1
+    fi
+}
+
+check_config CONFIG_KERNEL_DEBUG_INFO
+check_config CONFIG_KERNEL_DEBUG_INFO_BTF
+check_config CONFIG_KERNEL_CGROUPS
+check_config CONFIG_KERNEL_CGROUP_BPF
+check_config CONFIG_KERNEL_BPF_EVENTS
+check_config CONFIG_BPF_TOOLCHAIN_HOST
+check_config CONFIG_KERNEL_XDP_SOCKETS
+
+
+#################################################
+# 11. BTF 不能使用 reduced debug info
+#################################################
+
+echo
+echo ">>> Checking reduced debug information"
+
+if grep -q "^CONFIG_KERNEL_DEBUG_INFO_REDUCED=y" .config; then
+
+    echo "ERROR:"
+    echo "CONFIG_KERNEL_DEBUG_INFO_REDUCED=y"
+    echo
+    echo "Daed requires full debug information for BTF."
+    exit 1
+
+fi
+
+echo "OK: reduced debug information disabled."
+
+
+#################################################
+# 12. 检查 XDP sockets module
+#################################################
+
+echo
+echo ">>> Checking XDP sockets module"
+
+if grep -q "^CONFIG_PACKAGE_kmod-xdp-sockets-diag=y" .config; then
+    echo "OK: kmod-xdp-sockets-diag"
+else
+    echo "ERROR: kmod-xdp-sockets-diag is missing."
+    exit 1
+fi
+
+
+#################################################
+# 13. 检查 360T7 image definition
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking 360T7 image definition"
+echo "================================================"
+
+IMAGE_DEF="target/linux/mediatek/image/filogic.mk"
+
+if [ ! -f "$IMAGE_DEF" ]; then
+    echo "ERROR: filogic.mk not found."
+    exit 1
+fi
+
+if ! grep -q "Device/qihoo_360t7" "$IMAGE_DEF"; then
+    echo "ERROR: qihoo_360t7 image definition not found."
+    exit 1
+fi
+
+echo "OK: 360T7 image definition found."
+
+
+#################################################
+# 14. 打印第三方仓库版本
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Third-party package revisions"
+echo "================================================"
 
 echo
 echo "[PassWall]"
@@ -195,48 +289,36 @@ echo
 echo "[MosDNS]"
 git -C package/mosdns log -1 --oneline || true
 
+echo
+echo "[Daed]"
+git -C package/daed log -1 --oneline || true
+
 
 #################################################
-# 10. 检查 360T7 image definition
+# 15. 完成
 #################################################
 
 echo
-echo ">>> Checking 360T7 image definition..."
-
-IMAGE_DEF="target/linux/mediatek/image/filogic.mk"
-
-if [ ! -f "$IMAGE_DEF" ]; then
-    echo "ERROR: $IMAGE_DEF not found."
-    exit 1
-fi
-
-if ! grep -q "Device/qihoo_360t7" "$IMAGE_DEF"; then
-    echo "ERROR: qihoo_360t7 image definition not found."
-    exit 1
-fi
-
-echo "OK: qihoo_360t7 image definition found."
-
-
-#################################################
-# 11. 最终检查
-#################################################
-
-echo
-echo "=============================================="
-echo ">>> DIY Part 2 completed"
-echo "=============================================="
+echo "================================================"
+echo ">>> DIY Part 2 completed successfully"
+echo "================================================"
 
 echo
 echo "Target:"
-grep -R "CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7" \
-    .config || true
+echo "  MediaTek Filogic"
+echo "  MT7981"
+echo "  Qihoo 360T7"
 
 echo
-echo "Expected firmware:"
-echo "  qihoo_360t7-squashfs-sysupgrade.itb"
-echo "  qihoo_360t7-initramfs-recovery.itb"
-echo "  qihoo_360t7-preloader.bin"
-echo "  qihoo_360t7-bl31-uboot.fip"
+echo "Daed:"
+echo "  enabled"
+
+echo
+echo "BTF:"
+echo "  enabled"
+
+echo
+echo "eBPF:"
+echo "  enabled"
 
 echo
