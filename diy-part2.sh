@@ -6,9 +6,7 @@ sed -i 's/192.168.1.1/192.168.6.1/g' package/base-files/files/bin/config_generat
 # 首次启动初始化
 mkdir -p package/base-files/files/etc/uci-defaults
 cat > package/base-files/files/etc/uci-defaults/99-custom-settings <<'EOF'
-#!/bin/sh
-
-# 设置 root 默认密码为 password
+#!/sh
 echo "root:password" | chpasswd
 
 # 开启 SSH 密码登录
@@ -28,7 +26,6 @@ fi
 [ -f /etc/init.d/uhttpd ] && {
     uci set uhttpd.main.redirect_https='0'
     uci commit uhttpd
-
     /etc/init.d/uhttpd enable
     /etc/init.d/uhttpd restart
 }
@@ -38,7 +35,7 @@ exit 0
 EOF
 chmod +x package/base-files/files/etc/uci-defaults/99-custom-settings
 
-# 完整 eBPF 与 BTF 内核参数注入（daed 必需）
+# 完整 eBPF 与 BTF 内核参数注入（Daed 必需）
 grep -q "^CONFIG_BPF=y" target/linux/mediatek/filogic/config-default || cat >> target/linux/mediatek/filogic/config-default <<'EOF'
 CONFIG_DEBUG_INFO=y
 CONFIG_DEBUG_INFO_BTF=y
@@ -49,11 +46,13 @@ CONFIG_NET_CLS_ACT=y
 CONFIG_NET_SCH_INGRESS=y
 EOF
 
-# 拉取 daed 仓库
+# 1. 拉取 Daed 仓库
 rm -rf package/daed
 git clone --depth=1 https://github.com/QiuSimons/luci-app-daed package/daed
 
-# 拉取 PassWall 源码及其核心依赖库
+# 2. 拉取 PassWall 源码及其核心依赖库
 rm -rf package/passwall package/passwall-packages
 git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall package/passwall
 git clone --depth=1 https://github.com/xiaorouji/openwrt-passwall-packages package/passwall-packages
+
+# 3. MosDNS 与 Tailscale 已内置在 iStoreOS feeds 树中，无需额外 git clone
