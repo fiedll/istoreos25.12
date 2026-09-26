@@ -140,22 +140,49 @@ jobs:
             xxd \
             zlib1g-dev
 
-          sudo ln -sf "$(command -v clang)" /usr/bin/clang
-
+          CLANG_PATH="$(command -v clang || true)"
           LLVM_STRIP_PATH="$(command -v llvm-strip || true)"
 
-          if [ -n "$LLVM_STRIP_PATH" ]; then
-            sudo ln -sf "$LLVM_STRIP_PATH" /usr/bin/llvm-strip
+          if [ -z "$CLANG_PATH" ] || [ ! -x "$CLANG_PATH" ]; then
+            echo "ERROR: clang executable not found."
+            dpkg -l | grep -E '^ii[[:space:]]+(clang|llvm|lld)' || true
+            find /usr -type f -name clang -executable 2>/dev/null | head -50 || true
+            exit 1
           fi
+
+          if [ -z "$LLVM_STRIP_PATH" ] || [ ! -x "$LLVM_STRIP_PATH" ]; then
+            echo "ERROR: llvm-strip executable not found."
+            dpkg -l | grep -E '^ii[[:space:]]+(llvm|lld)' || true
+            find /usr -type f -name llvm-strip -executable 2>/dev/null | head -50 || true
+            exit 1
+          fi
+
+          CLANG_PATH="$(readlink -f "$CLANG_PATH")"
+          LLVM_STRIP_PATH="$(readlink -f "$LLVM_STRIP_PATH")"
+
+          if [ ! -x "$CLANG_PATH" ]; then
+            echo "ERROR: resolved clang path is not executable: $CLANG_PATH"
+            exit 1
+          fi
+
+          if [ ! -x "$LLVM_STRIP_PATH" ]; then
+            echo "ERROR: resolved llvm-strip path is not executable: $LLVM_STRIP_PATH"
+            exit 1
+          fi
+
+          echo "CLANG_PATH=$CLANG_PATH" >> "$GITHUB_ENV"
+          echo "LLVM_STRIP_PATH=$LLVM_STRIP_PATH" >> "$GITHUB_ENV"
 
           sudo ln -sf \
             "/usr/share/zoneinfo/$TZ" \
             /etc/localtime
 
           echo "========== TOOLCHAIN =========="
-          clang --version | head -n 1
+          echo "CLANG_PATH=$CLANG_PATH"
+          echo "LLVM_STRIP_PATH=$LLVM_STRIP_PATH"
+          "$CLANG_PATH" --version | head -n 1
           llvm-config --version || true
-          llvm-strip --version | head -n 1 || true
+          "$LLVM_STRIP_PATH" --version | head -n 1
           pahole --version || true
           gcc --version | head -n 1
           git --version
