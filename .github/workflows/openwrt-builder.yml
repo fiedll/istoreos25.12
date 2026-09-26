@@ -54,7 +54,8 @@ jobs:
         python3-pyelftools python3-setuptools \
         qemu-utils rsync scons squashfs-tools \
         subversion swig texinfo uglifyjs unzip \
-        vim wget xmlto xxd zlib1g-dev dwarves
+        vim wget xmlto xxd zlib1g-dev dwarves \
+        clang llvm lld
         sudo timedatectl set-timezone "$TZ"
 
     - name: Clone Source Code
