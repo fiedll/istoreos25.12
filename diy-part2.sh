@@ -440,15 +440,18 @@ if [ -f ".config" ]; then
 
     echo
     echo "[Daed BTF selection]"
-    grep -E '^CONFIG_PACKAGE_daed_DAED_USE_(KERNEL|VMLINUX)_BTF=' .config || true
+    grep -E '^CONFIG_KERNEL_DEBUG_INFO(_BTF)?=' .config || true
 
-    if ! grep -q '^CONFIG_PACKAGE_daed_DAED_USE_KERNEL_BTF=y' .config; then
-        echo "ERROR: Daed kernel BTF mode is not selected."
+    # The Daed package no longer carries a package-local BTF selector.
+    # iStoreOS 25.12 provides BTF directly from the kernel, so the only
+    # authoritative selection is CONFIG_KERNEL_DEBUG_INFO_BTF=y.
+    if ! grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config; then
+        echo "ERROR: integrated kernel BTF is not enabled."
         exit 1
     fi
 
-    if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_VMLINUX_BTF=y' .config; then
-        echo "ERROR: Daed vmlinux-btf mode is selected unexpectedly."
+    if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_(KERNEL|VMLINUX)_BTF=' .config; then
+        echo "ERROR: obsolete Daed package-local BTF option remains."
         exit 1
     fi
 
