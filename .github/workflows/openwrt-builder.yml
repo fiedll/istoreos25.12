@@ -452,27 +452,40 @@ jobs:
 
           ccache --zero-stats || true
 
-          # Always let OpenWrt prepare host tools and toolchain through the
-          # normal top-level build first. Do not invoke package/dae/daed/compile
-          # directly before this, because that can skip host-tool dependencies
-          # such as staging_dir/host/bin/sed.
-          if ! make \
+          # Do not retry a failed full build by invoking a package compile
+          # directly. That can enter a second long-running build path and
+          # leave GitHub Actions in_progress for hours after the real failure.
+          # The full top-level build already prepares all host tools and
+          # dependencies in the correct order.
+          BUILD_TIMEOUT_MIN=120
+          echo "Full build timeout: ${BUILD_TIMEOUT_MIN} minutes"
+
+          set +e
+          timeout --foreground ${BUILD_TIMEOUT_MIN}m make \
             -j"$(nproc)" \
             CLANG="$CLANG_PATH" \
             LLVM_STRIP="$LLVM_STRIP_PATH" \
             BPF_CLANG="$CLANG_PATH" \
             BPF_STRIP="$LLVM_STRIP_PATH"
-          then
+          BUILD_RC=$?
+          set -e
+
+          if [ "$BUILD_RC" -eq 124 ]; then
+            echo "========== FULL BUILD TIMEOUT =========="
+            echo "ERROR: Full firmware build exceeded ${BUILD_TIMEOUT_MIN} minutes."
+            echo "No serial Daed rebuild will be started."
+            echo "========== ACTIVE PROCESSES =========="
+            ps -eo pid,ppid,etime,%cpu,%mem,stat,cmd --sort=-%cpu | head -80 || true
+            echo "========== MEMORY =========="
+            free -h || true
+            exit 124
+          fi
+
+          if [ "$BUILD_RC" -ne 0 ]; then
             echo "========== FULL BUILD FAILED =========="
-            echo "Re-running Daed compile serially with V=s for diagnostics."
-            make package/dae/daed/compile \
-              -j1 \
-              V=s \
-              CLANG="$CLANG_PATH" \
-              LLVM_STRIP="$LLVM_STRIP_PATH" \
-              BPF_CLANG="$CLANG_PATH" \
-              BPF_STRIP="$LLVM_STRIP_PATH"
-            exit 1
+            echo "ERROR: Top-level OpenWrt build failed with exit code $BUILD_RC."
+            echo "The job stops here so the actual failure is visible in Actions logs."
+            exit "$BUILD_RC"
           fi
 
           echo "========== CCACHE STATS =========="
