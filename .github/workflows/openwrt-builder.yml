@@ -301,6 +301,24 @@ jobs:
             '^CONFIG_PACKAGE_mosdns=y' \
             .config
 
+          echo "========== Tailscale =========="
+
+          grep \
+            '^CONFIG_PACKAGE_tailscale=y' \
+            .config
+
+          grep \
+            '^CONFIG_PACKAGE_luci-app-tailscale-community=y' \
+            .config
+
+          grep \
+            '^CONFIG_PACKAGE_luci-i18n-tailscale-community-zh-cn=y' \
+            .config
+
+          grep \
+            '^CONFIG_PACKAGE_kmod-tun=y' \
+            .config
+
 
       #################################################
       # Verify package tree after defconfig
