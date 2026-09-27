@@ -337,6 +337,10 @@ jobs:
           fi
 
           grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config
+          if grep -q '^CONFIG_KERNEL_DEBUG_INFO_REDUCED=y' .config; then
+            echo "ERROR: reduced kernel debug info disables kernel BTF."
+            exit 1
+          fi
 
           # The upstream Daed package exposes a Kconfig choice for
           # vmlinux-btf. iStoreOS 25.12 has no vmlinux-btf package, so
