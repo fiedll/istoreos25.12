@@ -240,6 +240,7 @@ rm -rf package/daed/vmlinux-btf /tmp/openwrt-daede
 test -f package/daed/Makefile
 test -f package/luci-app-daede/Makefile
 test -f package/daed/Makefile
+test -f package/luci-app-daede/Makefile
 
 echo "OK: known-good kenzok8 Daed tree installed."
 
@@ -613,7 +614,7 @@ echo "  MosDNS"
 
 echo
 echo "Daed:"
-echo "  $DAED_VERSION"
+echo "  $DAED_PKG_NAME $DAED_PKG_VERSION-$DAED_PKG_RELEASE"
 
 echo
 echo "eBPF / BTF:"
