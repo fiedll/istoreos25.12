@@ -253,18 +253,10 @@ DAED_MAKEFILE="package/dae/daed/Makefile"
 # vmlinux-btf dependency and its package choice entirely.
 sed -i '/+DAED_USE_VMLINUX_BTF:vmlinux-btf/d' "$DAED_MAKEFILE"
 
-python3 - "$DAED_MAKEFILE" <<'PY'
-from pathlib import Path
-p = Path(__import__("sys").argv[1])
-s = p.read_text()
-start = s.find("define Package/daed/config")
-if start >= 0:
-    end = s.find("endef", start)
-    if end < 0:
-        raise SystemExit("ERROR: Daed config block has no endef")
-    s = s[:start] + s[end + len("endef\n"):]
-p.write_text(s)
-PY
+# Keep the upstream Daed package configuration choice intact so
+# CONFIG_PACKAGE_daed=y survives make defconfig. Only remove the
+# unavailable vmlinux-btf runtime dependency.
+sed -i 's/[[:space:]]*+DAED_USE_VMLINUX_BTF:vmlinux-btf//g' "$DAED_MAKEFILE"
 
 if grep -q 'vmlinux-btf' "$DAED_MAKEFILE"; then
     echo "ERROR: vmlinux-btf dependency/configuration remains in Daed Makefile."
