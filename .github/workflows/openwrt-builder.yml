@@ -328,23 +328,23 @@ jobs:
 
           echo "========== Daed BTF dependency =========="
 
-          if grep -q '+DAED_USE_VMLINUX_BTF:vmlinux-btf' package/dae/daed/Makefile; then
-            echo "ERROR: invalid bare Daed BTF dependency condition remains."
+          if grep -q 'vmlinux-btf' package/dae/daed/Makefile; then
+            echo "ERROR: Daed still references unavailable vmlinux-btf."
             exit 1
           fi
 
-          if ! grep -q '+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' package/dae/daed/Makefile; then
-            echo "ERROR: expected conditional vmlinux-btf dependency is missing."
-            exit 1
-          fi
+          grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config
 
-          grep -q '^CONFIG_PACKAGE_daed_DAED_USE_KERNEL_BTF=y' .config
+          # The upstream Daed package exposes a Kconfig choice for
+          # vmlinux-btf. iStoreOS 25.12 has no vmlinux-btf package, so
+          # diy-part2.sh removes that optional choice and uses integrated
+          # kernel BTF instead.
           if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_VMLINUX_BTF=y' .config; then
-            echo "ERROR: vmlinux-btf mode is enabled."
+            echo "ERROR: obsolete Daed vmlinux-btf option is enabled."
             exit 1
           fi
 
-          echo "OK: Daed BTF mode = kernel BTF"
+          echo "OK: Daed BTF mode = integrated kernel BTF"
 
           echo "========== Daed package location =========="
 
