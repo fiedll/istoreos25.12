@@ -448,6 +448,19 @@ jobs:
           grep '^PKG_RELEASE:=' \
             package/dae/daed/Makefile
 
+          echo "========== Daed Preflight Compile =========="
+
+          # Build Daed once, serially and verbosely before the full parallel
+          # build. This preserves the first real compiler error instead of
+          # hiding it behind a later top-level timeout.
+          make package/dae/daed/compile V=s -j1 \
+            CLANG="$CLANG_PATH" \
+            LLVM_STRIP="$LLVM_STRIP_PATH" \
+            BPF_CLANG="$CLANG_PATH" \
+            BPF_STRIP="$LLVM_STRIP_PATH"
+
+          echo "========== Daed Preflight OK =========="
+
           echo "========== Start Full Compile =========="
 
           ccache --zero-stats || true
