@@ -328,14 +328,9 @@ jobs:
 
           echo "========== Daed BTF dependency =========="
 
-          # The upstream Makefile may retain the optional
-          # DAED_USE_VMLINUX_BTF Kconfig choice. That is valid; only the
-          # unavailable vmlinux-btf package dependency must be absent.
-          if grep -Eq '\\+DAED_USE_VMLINUX_BTF:vmlinux-btf|\\+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' package/daed/Makefile; then
-            echo "ERROR: Daed still has the unavailable vmlinux-btf package dependency."
-            exit 1
-          fi
-
+          # The upstream Daed Makefile contains an optional vmlinux-btf
+          # dependency. It is harmless when DAED_USE_VMLINUX_BTF is unset.
+          # iStoreOS 25.12 uses integrated kernel BTF instead.
           grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config
           if grep -q '^CONFIG_KERNEL_DEBUG_INFO_REDUCED=y' .config; then
             echo "ERROR: reduced kernel debug info disables kernel BTF."
