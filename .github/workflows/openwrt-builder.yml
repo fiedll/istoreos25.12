@@ -286,7 +286,7 @@ jobs:
             .config
 
           grep \
-            '^CONFIG_PACKAGE_luci-app-daedee=y' \
+            '^CONFIG_PACKAGE_luci-app-daede=y' \
             .config
 
           echo "========== PassWall =========="
@@ -315,7 +315,7 @@ jobs:
           echo "========== Daed =========="
 
           test -f package/daed/Makefile
-          test -f package/luci-app-daedee/Makefile
+          test -f package/luci-app-daede/Makefile
 
           grep '^PKG_NAME:=daed' \
             package/daed/Makefile
