@@ -245,6 +245,30 @@ fi
 echo "OK: Daed source installed."
 echo "Daed version: $DAED_TAG"
 
+DAED_MAKEFILE="package/dae/daed/Makefile"
+
+# The upstream Makefile uses a bare DAED_USE_VMLINUX_BTF condition.
+# In OpenWrt package DEPENDS, package-local Kconfig symbols must use
+# PACKAGE_<pkg>_<symbol>; otherwise iStoreOS treats vmlinux-btf as an
+# unconditional package dependency and warns that it does not exist.
+if grep -q '+DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
+    sed -i \
+        's/+DAED_USE_VMLINUX_BTF:vmlinux-btf/+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf/' \
+        "$DAED_MAKEFILE"
+fi
+
+if grep -q '+DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
+    echo "ERROR: invalid bare Daed BTF dependency condition remains."
+    exit 1
+fi
+
+if ! grep -q '+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
+    echo "ERROR: expected conditional vmlinux-btf dependency is missing."
+    exit 1
+fi
+
+echo "OK: Daed BTF dependency condition normalized."
+
 
 #################################################
 # 8. Remove duplicate packages
@@ -409,6 +433,22 @@ if [ -f ".config" ]; then
     echo
     echo "[Target]"
     grep '^CONFIG_TARGET_mediatek' .config || true
+
+    echo
+    echo "[Daed BTF selection]"
+    grep -E '^CONFIG_PACKAGE_daed_DAED_USE_(KERNEL|VMLINUX)_BTF=' .config || true
+
+    if ! grep -q '^CONFIG_PACKAGE_daed_DAED_USE_KERNEL_BTF=y' .config; then
+        echo "ERROR: Daed kernel BTF mode is not selected."
+        exit 1
+    fi
+
+    if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_VMLINUX_BTF=y' .config; then
+        echo "ERROR: Daed vmlinux-btf mode is selected unexpectedly."
+        exit 1
+    fi
+
+    echo "OK: Daed uses integrated kernel BTF."
 
     if ! grep -q \
         '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' \
