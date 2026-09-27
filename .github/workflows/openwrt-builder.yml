@@ -326,6 +326,26 @@ jobs:
           grep '^PKG_RELEASE:=' \
             package/dae/daed/Makefile
 
+          echo "========== Daed BTF dependency =========="
+
+          if grep -q '+DAED_USE_VMLINUX_BTF:vmlinux-btf' package/dae/daed/Makefile; then
+            echo "ERROR: invalid bare Daed BTF dependency condition remains."
+            exit 1
+          fi
+
+          if ! grep -q '+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' package/dae/daed/Makefile; then
+            echo "ERROR: expected conditional vmlinux-btf dependency is missing."
+            exit 1
+          fi
+
+          grep -q '^CONFIG_PACKAGE_daed_DAED_USE_KERNEL_BTF=y' .config
+          if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_VMLINUX_BTF=y' .config; then
+            echo "ERROR: vmlinux-btf mode is enabled."
+            exit 1
+          fi
+
+          echo "OK: Daed BTF mode = kernel BTF"
+
           echo "========== Daed package location =========="
 
           find package \
