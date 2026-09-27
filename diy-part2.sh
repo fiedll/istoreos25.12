@@ -95,7 +95,7 @@ rm -rf \
     package/passwall-packages \
     package/mosdns \
     package/daed \
-    package/dae
+    package/daed
 
 #
 # iStoreOS 25.12 feeds may already provide dae/daed.
@@ -218,52 +218,30 @@ echo "================================================"
 echo ">>> Installing Daed"
 echo "================================================"
 
-DAED_TAG="daed_2026.07.31-r1"
+# Use the same known-good Daed/dae tree as the successful 360T7 build.
+rm -rf package/daed package/luci-app-daedee package/daed /tmp/openwrt-daede
 
-git clone \
-    --depth=1 \
-    --single-branch \
-    --branch="$DAED_TAG" \
-    https://github.com/QiuSimons/luci-app-daed.git \
-    package/dae
+git clone --depth=1 --single-branch \
+    https://github.com/kenzok8/openwrt-daede.git \
+    /tmp/openwrt-daede
 
-if [ ! -d "package/dae" ]; then
-    echo "ERROR: Daed source not found."
-    exit 1
-fi
+for pkg in daed luci-app-daedee dae; do
+    if [ ! -d "/tmp/openwrt-daede/$pkg" ]; then
+        echo "ERROR: missing $pkg in kenzok8/openwrt-daede"
+        exit 1
+    fi
+done
 
-if [ ! -f "package/dae/daed/Makefile" ]; then
-    echo "ERROR: package/dae/daed/Makefile not found."
-    exit 1
-fi
+cp -a /tmp/openwrt-daede/daed package/daed
+cp -a /tmp/openwrt-daede/luci-app-daedee package/luci-app-daedee
+cp -a /tmp/openwrt-daede/dae package/daed
+rm -rf package/daed/vmlinux-btf /tmp/openwrt-daede
 
-if [ ! -f "package/dae/luci-app-daed/Makefile" ]; then
-    echo "ERROR: package/dae/luci-app-daed/Makefile not found."
-    exit 1
-fi
+test -f package/daed/Makefile
+test -f package/luci-app-daedee/Makefile
+test -f package/daed/Makefile
 
-echo "OK: Daed source installed."
-echo "Daed version: $DAED_TAG"
-
-DAED_MAKEFILE="package/dae/daed/Makefile"
-
-# iStoreOS 25.12 does not provide a vmlinux-btf package.
-# This build intentionally uses the kernel's integrated BTF
-# (CONFIG_KERNEL_DEBUG_INFO_BTF=y), so remove the optional upstream
-# vmlinux-btf dependency and its package choice entirely.
-sed -i 's/[[:space:]]*+DAED_USE_VMLINUX_BTF:vmlinux-btf//g' "$DAED_MAKEFILE"
-
-# The upstream Makefile may still contain the optional DAED_USE_VMLINUX_BTF
-# Kconfig choice. That choice is harmless and must be preserved so that
-# CONFIG_PACKAGE_daed=y survives make defconfig. Only the unavailable
-# vmlinux-btf package dependency itself must be absent.
-if grep -Eq '\+DAED_USE_VMLINUX_BTF:vmlinux-btf|\+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
-    echo "ERROR: unavailable vmlinux-btf package dependency remains in Daed Makefile."
-    exit 1
-fi
-
-echo "OK: Daed configured to use integrated kernel BTF only."
-
+echo "OK: known-good kenzok8 Daed tree installed."
 
 #################################################
 # 8. Remove duplicate packages
@@ -296,18 +274,18 @@ echo "================================================"
 echo
 echo "[Daed Makefiles]"
 
-find package/dae \
+find package/daed \
     -maxdepth 3 \
     -type f \
     -name Makefile \
     -print
 
-if [ ! -f "package/dae/daed/Makefile" ]; then
+if [ ! -f "package/daed/Makefile" ]; then
     echo "ERROR: Daed backend Makefile not found."
     exit 1
 fi
 
-if [ ! -f "package/dae/luci-app-daed/Makefile" ]; then
+if [ ! -f "package/luci-app-daedee/Makefile" ]; then
     echo "ERROR: Daed LuCI Makefile not found."
     exit 1
 fi
@@ -493,7 +471,7 @@ echo "================================================"
 echo ">>> Checking Daed package version"
 echo "================================================"
 
-DAED_MAKEFILE="package/dae/daed/Makefile"
+DAED_MAKEFILE="package/daed/Makefile"
 
 DAED_PKG_NAME="$(
     sed -n 's/^PKG_NAME:=//p' "$DAED_MAKEFILE" | head -n 1
@@ -540,8 +518,8 @@ echo "================================================"
 
 echo
 echo "[Daed]"
-git -C package/dae describe --tags --always || true
-git -C package/dae log -1 --oneline || true
+git -C package/daed describe --tags --always || true
+git -C package/daed log -1 --oneline || true
 
 echo
 echo "[PassWall]"
@@ -568,7 +546,7 @@ echo "================================================"
 echo
 echo "[Daed]"
 
-find package/dae \
+find package/daed \
     -maxdepth 3 \
     -type f \
     -name Makefile \
@@ -635,7 +613,7 @@ echo "  MosDNS"
 
 echo
 echo "Daed:"
-echo "  $DAED_TAG"
+echo "  $DAED_VERSION"
 
 echo
 echo "eBPF / BTF:"
