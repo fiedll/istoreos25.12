@@ -219,13 +219,13 @@ echo ">>> Installing Daed"
 echo "================================================"
 
 # Use the same known-good Daed/dae tree as the successful 360T7 build.
-rm -rf package/daed package/luci-app-daedee package/daed /tmp/openwrt-daede
+rm -rf package/daed package/luci-app-daede package/dae /tmp/openwrt-daede
 
 git clone --depth=1 --single-branch \
     https://github.com/kenzok8/openwrt-daede.git \
     /tmp/openwrt-daede
 
-for pkg in daed luci-app-daedee dae; do
+for pkg in daed luci-app-daede dae; do
     if [ ! -d "/tmp/openwrt-daede/$pkg" ]; then
         echo "ERROR: missing $pkg in kenzok8/openwrt-daede"
         exit 1
@@ -233,12 +233,12 @@ for pkg in daed luci-app-daedee dae; do
 done
 
 cp -a /tmp/openwrt-daede/daed package/daed
-cp -a /tmp/openwrt-daede/luci-app-daedee package/luci-app-daedee
-cp -a /tmp/openwrt-daede/dae package/daed
+cp -a /tmp/openwrt-daede/luci-app-daede package/luci-app-daede
+cp -a /tmp/openwrt-daede/dae package/dae
 rm -rf package/daed/vmlinux-btf /tmp/openwrt-daede
 
 test -f package/daed/Makefile
-test -f package/luci-app-daedee/Makefile
+test -f package/luci-app-daede/Makefile
 test -f package/daed/Makefile
 
 echo "OK: known-good kenzok8 Daed tree installed."
@@ -285,7 +285,7 @@ if [ ! -f "package/daed/Makefile" ]; then
     exit 1
 fi
 
-if [ ! -f "package/luci-app-daedee/Makefile" ]; then
+if [ ! -f "package/luci-app-daede/Makefile" ]; then
     echo "ERROR: Daed LuCI Makefile not found."
     exit 1
 fi
