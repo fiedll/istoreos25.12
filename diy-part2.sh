@@ -251,15 +251,14 @@ DAED_MAKEFILE="package/dae/daed/Makefile"
 # This build intentionally uses the kernel's integrated BTF
 # (CONFIG_KERNEL_DEBUG_INFO_BTF=y), so remove the optional upstream
 # vmlinux-btf dependency and its package choice entirely.
-sed -i '/+DAED_USE_VMLINUX_BTF:vmlinux-btf/d' "$DAED_MAKEFILE"
-
-# Keep the upstream Daed package configuration choice intact so
-# CONFIG_PACKAGE_daed=y survives make defconfig. Only remove the
-# unavailable vmlinux-btf runtime dependency.
 sed -i 's/[[:space:]]*+DAED_USE_VMLINUX_BTF:vmlinux-btf//g' "$DAED_MAKEFILE"
 
-if grep -q 'vmlinux-btf' "$DAED_MAKEFILE"; then
-    echo "ERROR: vmlinux-btf dependency/configuration remains in Daed Makefile."
+# The upstream Makefile may still contain the optional DAED_USE_VMLINUX_BTF
+# Kconfig choice. That choice is harmless and must be preserved so that
+# CONFIG_PACKAGE_daed=y survives make defconfig. Only the unavailable
+# vmlinux-btf package dependency itself must be absent.
+if grep -Eq '\+DAED_USE_VMLINUX_BTF:vmlinux-btf|\+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
+    echo "ERROR: unavailable vmlinux-btf package dependency remains in Daed Makefile."
     exit 1
 fi
 
