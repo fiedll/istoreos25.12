@@ -247,27 +247,31 @@ echo "Daed version: $DAED_TAG"
 
 DAED_MAKEFILE="package/dae/daed/Makefile"
 
-# The upstream Makefile uses a bare DAED_USE_VMLINUX_BTF condition.
-# In OpenWrt package DEPENDS, package-local Kconfig symbols must use
-# PACKAGE_<pkg>_<symbol>; otherwise iStoreOS treats vmlinux-btf as an
-# unconditional package dependency and warns that it does not exist.
-if grep -q '+DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
-    sed -i \
-        's/+DAED_USE_VMLINUX_BTF:vmlinux-btf/+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf/' \
-        "$DAED_MAKEFILE"
-fi
+# iStoreOS 25.12 does not provide a vmlinux-btf package.
+# This build intentionally uses the kernel's integrated BTF
+# (CONFIG_KERNEL_DEBUG_INFO_BTF=y), so remove the optional upstream
+# vmlinux-btf dependency and its package choice entirely.
+sed -i '/+DAED_USE_VMLINUX_BTF:vmlinux-btf/d' "$DAED_MAKEFILE"
 
-if grep -q '+DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
-    echo "ERROR: invalid bare Daed BTF dependency condition remains."
+python3 - "$DAED_MAKEFILE" <<'PY'
+from pathlib import Path
+p = Path(__import__("sys").argv[1])
+s = p.read_text()
+start = s.find("define Package/daed/config")
+if start >= 0:
+    end = s.find("endef", start)
+    if end < 0:
+        raise SystemExit("ERROR: Daed config block has no endef")
+    s = s[:start] + s[end + len("endef\n"):]
+p.write_text(s)
+PY
+
+if grep -q 'vmlinux-btf' "$DAED_MAKEFILE"; then
+    echo "ERROR: vmlinux-btf dependency/configuration remains in Daed Makefile."
     exit 1
 fi
 
-if ! grep -q '+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' "$DAED_MAKEFILE"; then
-    echo "ERROR: expected conditional vmlinux-btf dependency is missing."
-    exit 1
-fi
-
-echo "OK: Daed BTF dependency condition normalized."
+echo "OK: Daed configured to use integrated kernel BTF only."
 
 
 #################################################
