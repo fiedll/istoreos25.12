@@ -443,6 +443,13 @@ jobs:
           grep '^PKG_RELEASE:=' \
             package/daed/Makefile
 
+          echo "========== Prepare OpenWrt Host Tools =========="
+
+          # The Daed-only preflight bypasses the normal top-level dependency
+          # chain. Prepare and install host tools first so packages such as
+          # lua can find staging_dir/host/bin/sed and other host utilities.
+          make tools/install V=s -j"$(nproc)"
+
           echo "========== Daed Preflight Compile =========="
 
           # Build Daed once, serially and verbosely before the full parallel
