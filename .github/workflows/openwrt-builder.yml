@@ -286,7 +286,7 @@ jobs:
             .config
 
           grep \
-            '^CONFIG_PACKAGE_luci-app-daed=y' \
+            '^CONFIG_PACKAGE_luci-app-daedee=y' \
             .config
 
           echo "========== PassWall =========="
@@ -314,24 +314,24 @@ jobs:
 
           echo "========== Daed =========="
 
-          test -f package/dae/daed/Makefile
-          test -f package/dae/luci-app-daed/Makefile
+          test -f package/daed/Makefile
+          test -f package/luci-app-daedee/Makefile
 
           grep '^PKG_NAME:=daed' \
-            package/dae/daed/Makefile
+            package/daed/Makefile
 
           grep '^PKG_VERSION:=' \
-            package/dae/daed/Makefile
+            package/daed/Makefile
 
           grep '^PKG_RELEASE:=' \
-            package/dae/daed/Makefile
+            package/daed/Makefile
 
           echo "========== Daed BTF dependency =========="
 
           # The upstream Makefile may retain the optional
           # DAED_USE_VMLINUX_BTF Kconfig choice. That is valid; only the
           # unavailable vmlinux-btf package dependency must be absent.
-          if grep -Eq '\\+DAED_USE_VMLINUX_BTF:vmlinux-btf|\\+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' package/dae/daed/Makefile; then
+          if grep -Eq '\\+DAED_USE_VMLINUX_BTF:vmlinux-btf|\\+PACKAGE_daed_DAED_USE_VMLINUX_BTF:vmlinux-btf' package/daed/Makefile; then
             echo "ERROR: Daed still has the unavailable vmlinux-btf package dependency."
             exit 1
           fi
@@ -357,7 +357,7 @@ jobs:
 
           find package \
             -path '*/daed/Makefile' \
-            -o -path '*/luci-app-daed/Makefile' \
+            -o -path '*/luci-app-daede/Makefile' \
             | sort
 
           echo "========== Forbidden old feed Daed =========="
@@ -440,20 +440,20 @@ jobs:
           echo "========== Daed Makefile =========="
 
           grep '^PKG_NAME:=' \
-            package/dae/daed/Makefile
+            package/daed/Makefile
 
           grep '^PKG_VERSION:=' \
-            package/dae/daed/Makefile
+            package/daed/Makefile
 
           grep '^PKG_RELEASE:=' \
-            package/dae/daed/Makefile
+            package/daed/Makefile
 
           echo "========== Daed Preflight Compile =========="
 
           # Build Daed once, serially and verbosely before the full parallel
           # build. This preserves the first real compiler error instead of
           # hiding it behind a later top-level timeout.
-          make package/dae/daed/compile V=s -j1 \
+          make package/daed/compile V=s -j1 \
             CLANG="$CLANG_PATH" \
             LLVM_STRIP="$LLVM_STRIP_PATH" \
             BPF_CLANG="$CLANG_PATH" \
