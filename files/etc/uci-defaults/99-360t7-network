@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# Force a known-good first-boot network layout for Qihoo 360T7 on iStoreOS 25.12.
-# Upstream 25.12 defines 360T7 as LAN: lan1/lan2/lan3, WAN: wan.
-# This is intentionally applied only on a fresh/default configuration.
+# Force the known-good first-boot network layout for Qihoo 360T7.
+# Official 25.12 uses LAN: lan1/lan2/lan3 and WAN: wan.
+# Apply once on the initial boot for both standard and UBI layouts.
 
 [ -x /sbin/uci ] || exit 0
 
@@ -14,12 +14,6 @@ case "$BOARD" in
         exit 0
         ;;
 esac
-
-# Only repair the initial/default configuration. Do not overwrite a user's
-# already customized network configuration on subsequent boots.
-if [ -e /etc/config/network ] && grep -q "option ipaddr '192.168.6.1'" /etc/config/network 2>/dev/null; then
-    exit 0
-fi
 
 cat > /etc/config/network <<'EOF'
 config interface 'loopback'
