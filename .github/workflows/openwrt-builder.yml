@@ -1,4 +1,5 @@
 name: iStoreOS-360T7
+# Trigger a fresh build after workflow validation
 
 on:
   workflow_dispatch:
