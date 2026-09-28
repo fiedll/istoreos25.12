@@ -466,11 +466,19 @@ if [ -f ".config" ]; then
         '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' \
         .config; then
 
-        echo "ERROR: 360T7 target is not enabled."
+        echo "ERROR: standard 360T7 target is not enabled."
         exit 1
     fi
 
-    echo "OK: 360T7 target enabled."
+    if ! grep -q \
+        '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7-ubi=y' \
+        .config; then
+        echo "ERROR: 360T7 UBI target is not enabled."
+        exit 1
+    fi
+
+    echo "OK: standard 360T7 target enabled."
+    echo "OK: 360T7 UBI target enabled."
 
 else
 
@@ -635,7 +643,7 @@ echo
 echo "Target:"
 echo "  MediaTek Filogic"
 echo "  MT7981"
-echo "  Qihoo 360T7"
+echo "  Qihoo 360T7 (standard + UBI images)"
 
 echo
 echo "LAN:"
