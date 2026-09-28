@@ -280,6 +280,10 @@ jobs:
             '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' \
             .config
 
+          grep \
+            '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7-ubi=y' \
+            .config
+
           echo "========== Daed =========="
 
           grep \
@@ -552,6 +556,16 @@ jobs:
 
           echo "Firmware images: $IMAGE_COUNT"
 
+          echo "========== 360T7 LAYOUT IMAGES =========="
+          find "$TARGET_DIR" -maxdepth 1 -type f \
+            \( -name '*qihoo_360t7-squashfs-sysupgrade.itb' -o -name '*qihoo_360t7-ubi-squashfs-sysupgrade.itb' \) \
+            -printf '%f %s bytes\n' | sort
+
+          test -f "$TARGET_DIR/istoreos-mediatek-filogic-qihoo_360t7-squashfs-sysupgrade.itb"
+          test -f "$TARGET_DIR/istoreos-mediatek-filogic-qihoo_360t7-ubi-squashfs-sysupgrade.itb"
+
+          echo "OK: both standard and UBI 360T7 sysupgrade images were generated."
+
 
       #################################################
       # Organize firmware
@@ -603,6 +617,14 @@ jobs:
 
           Device:
           Qihoo 360T7
+
+          Images:
+          Standard layout: qihoo_360t7
+          UBI layout: qihoo_360t7-ubi
+
+          LAN:
+          192.168.6.1
+          Ports: lan1 lan2 lan3
 
           Source:
           iStoreOS $REPO_BRANCH
