@@ -62,6 +62,43 @@ fi
 
 if grep -q "192\.168\.6\.1" "$CONFIG_GENERATE"; then
     echo "OK: LAN IP = 192.168.6.1"
+
+#################################################
+# 2b. Install 360T7 first-boot network repair
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Checking 360T7 network defaults"
+echo "================================================"
+
+NETWORK_FIX="$GITHUB_WORKSPACE/files/etc/uci-defaults/99-360t7-network"
+
+if [ ! -f "$NETWORK_FIX" ]; then
+    echo "ERROR: 360T7 network repair script not found."
+    exit 1
+fi
+
+if ! grep -q "list ports 'lan1'" "$NETWORK_FIX" ||    ! grep -q "list ports 'lan2'" "$NETWORK_FIX" ||    ! grep -q "list ports 'lan3'" "$NETWORK_FIX"; then
+    echo "ERROR: 360T7 LAN bridge ports are incomplete."
+    exit 1
+fi
+
+if ! grep -q "option ipaddr '192.168.6.1'" "$NETWORK_FIX"; then
+    echo "ERROR: 360T7 LAN IP is not 192.168.6.1."
+    exit 1
+fi
+
+if ! grep -q "option device 'wan'" "$NETWORK_FIX" ||    ! grep -q "option proto 'dhcp'" "$NETWORK_FIX"; then
+    echo "ERROR: 360T7 WAN DHCP definition is missing."
+    exit 1
+fi
+
+echo "OK: 360T7 first-boot network repair configured."
+echo "  LAN: br-lan = lan1 lan2 lan3"
+echo "  LAN IP: 192.168.6.1/24"
+echo "  DHCP: dnsmasq-full"
+echo "  WAN: wan / DHCP"
 else
     echo "ERROR: Failed to set LAN IP to 192.168.6.1"
     exit 1
