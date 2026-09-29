@@ -268,26 +268,28 @@ jobs:
           chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
           "$GITHUB_WORKSPACE/$DIY_P2_SH"
 
-          echo "========== Validating effective 360T7 network defaults =========="
+          echo "========== Validating fixed 360T7 network defaults =========="
 
-          NETWORK_FIX="package/base-files/files/etc/uci-defaults/99-360t7-network"
+          NETWORK_CFG="files/etc/config/network"
+          DHCP_CFG="files/etc/config/dhcp"
 
-          test -f "$NETWORK_FIX"
-          grep -q "option ipaddr '192.168.6.1'" "$NETWORK_FIX"
-          grep -q "option name 'br-lan'" "$NETWORK_FIX"
-          grep -q "list ports 'lan1'" "$NETWORK_FIX"
-          grep -q "list ports 'lan2'" "$NETWORK_FIX"
-          grep -q "list ports 'lan3'" "$NETWORK_FIX"
-          grep -q "option device 'wan'" "$NETWORK_FIX"
-          grep -q "option proto 'dhcp'" "$NETWORK_FIX"
-          grep -q "uci -q set dhcp.lan.dhcpv4='server'" "$NETWORK_FIX"
+          test -f "$NETWORK_CFG"
+          test -f "$DHCP_CFG"
 
-          if grep -q "delete network.@device\\[0\\]" "$NETWORK_FIX"; then
-            echo "ERROR: unsafe wildcard UCI device deletion detected."
-            exit 1
-          fi
+          grep -q "option name 'br-lan'" "$NETWORK_CFG"
+          grep -q "list ports 'lan1'" "$NETWORK_CFG"
+          grep -q "list ports 'lan2'" "$NETWORK_CFG"
+          grep -q "list ports 'lan3'" "$NETWORK_CFG"
+          grep -q "option device 'br-lan'" "$NETWORK_CFG"
+          grep -q "list ipaddr '192.168.6.1/24'" "$NETWORK_CFG"
+          grep -q "option device 'wan'" "$NETWORK_CFG"
+          grep -q "option proto 'dhcp'" "$NETWORK_CFG"
 
-          echo "OK: effective 360T7 network defaults validated."
+          grep -q "config dhcp 'lan'" "$DHCP_CFG"
+          grep -q "option interface 'lan'" "$DHCP_CFG"
+          grep -q "option dhcpv4 'server'" "$DHCP_CFG"
+
+          echo "OK: fixed 360T7 network defaults validated."
 
           echo "========== Running make defconfig =========="
 

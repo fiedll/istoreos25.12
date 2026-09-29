@@ -1,56 +1,6 @@
 #!/bin/sh
 
-# One-time first-boot network initialization for Qihoo 360T7 on iStoreOS 25.12.
-# Official 25.12 maps LAN to lan1/lan2/lan3 and WAN to wan.
-# This script creates the complete initial network and DHCP configuration
-# instead of modifying individual auto-generated UCI device entries.
-
-[ -x /sbin/uci ] || exit 0
-
-BOARD="$(cat /tmp/sysinfo/board_name 2>/dev/null || true)"
-case "$BOARD" in
-    qihoo,360t7|qihoo,360t7-ubi)
-        ;;
-    *)
-        exit 0
-        ;;
-esac
-
-cat > /etc/config/network <<'EOF'
-config interface 'loopback'
-        option device 'lo'
-        option proto 'static'
-        option ipaddr '127.0.0.1'
-        option netmask '255.0.0.0'
-
-config device
-        option name 'br-lan'
-        option type 'bridge'
-        list ports 'lan1'
-        list ports 'lan2'
-        list ports 'lan3'
-
-config interface 'lan'
-        option device 'br-lan'
-        option proto 'static'
-        option ipaddr '192.168.6.1'
-        option netmask '255.255.255.0'
-
-config interface 'wan'
-        option device 'wan'
-        option proto 'dhcp'
-
-config interface 'wan6'
-        option device 'wan'
-        option proto 'dhcpv6'
-EOF
-
-uci -q set dhcp.lan=dhcp
-uci -q set dhcp.lan.interface='lan'
-uci -q set dhcp.lan.start='100'
-uci -q set dhcp.lan.limit='150'
-uci -q set dhcp.lan.leasetime='12h'
-uci -q set dhcp.lan.dhcpv4='server'
-uci -q commit dhcp
+# Network is provisioned directly by /etc/config/network from the image.
+# Kept as a no-op compatibility hook so it cannot overwrite the network.
 
 exit 0

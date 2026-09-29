@@ -68,45 +68,48 @@ fi
 
 
 #################################################
-# 2b. 使用仓库内唯一的 360T7 首次开机网络配置
+# 2b. 验证固定的 360T7 网络配置
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Installing 360T7 network defaults"
+echo ">>> Verifying 360T7 network defaults"
 echo "================================================"
 
-NETWORK_FIX_SRC="$GITHUB_WORKSPACE/files/etc/uci-defaults/99-360t7-network"
-NETWORK_FIX_DST="package/base-files/files/etc/uci-defaults/99-360t7-network"
+NETWORK_CFG="$GITHUB_WORKSPACE/files/etc/config/network"
+DHCP_CFG="$GITHUB_WORKSPACE/files/etc/config/dhcp"
 
-if [ ! -f "$NETWORK_FIX_SRC" ]; then
-    echo "ERROR: canonical 360T7 network defaults not found: $NETWORK_FIX_SRC"
+if [ ! -f "$NETWORK_CFG" ]; then
+    echo "ERROR: fixed 360T7 network config is missing: $NETWORK_CFG"
     exit 1
 fi
 
-mkdir -p "$(dirname "$NETWORK_FIX_DST")"
-cp -f "$NETWORK_FIX_SRC" "$NETWORK_FIX_DST"
-chmod +x "$NETWORK_FIX_DST"
-
-grep -q "option ipaddr '192.168.6.1'" "$NETWORK_FIX_DST"
-grep -q "option name 'br-lan'" "$NETWORK_FIX_DST"
-grep -q "list ports 'lan1'" "$NETWORK_FIX_DST"
-grep -q "list ports 'lan2'" "$NETWORK_FIX_DST"
-grep -q "list ports 'lan3'" "$NETWORK_FIX_DST"
-grep -q "option device 'wan'" "$NETWORK_FIX_DST"
-grep -q "option proto 'dhcp'" "$NETWORK_FIX_DST"
-grep -q "uci -q set dhcp.lan.dhcpv4='server'" "$NETWORK_FIX_DST"
-
-if grep -q "delete network.@device\[0\]" "$NETWORK_FIX_DST"; then
-    echo "ERROR: unsafe wildcard UCI device deletion detected."
+if [ ! -f "$DHCP_CFG" ]; then
+    echo "ERROR: fixed 360T7 DHCP config is missing: $DHCP_CFG"
     exit 1
 fi
 
-echo "OK: canonical 360T7 first-boot network configuration installed."
+grep -q "option name 'br-lan'" "$NETWORK_CFG"
+grep -q "list ports 'lan1'" "$NETWORK_CFG"
+grep -q "list ports 'lan2'" "$NETWORK_CFG"
+grep -q "list ports 'lan3'" "$NETWORK_CFG"
+grep -q "option device 'br-lan'" "$NETWORK_CFG"
+grep -q "list ipaddr '192.168.6.1/24'" "$NETWORK_CFG"
+grep -q "option device 'wan'" "$NETWORK_CFG"
+grep -q "option proto 'dhcp'" "$NETWORK_CFG"
+
+grep -q "config dhcp 'lan'" "$DHCP_CFG"
+grep -q "option interface 'lan'" "$DHCP_CFG"
+grep -q "option start '100'" "$DHCP_CFG"
+grep -q "option limit '150'" "$DHCP_CFG"
+grep -q "option dhcpv4 'server'" "$DHCP_CFG"
+
+echo "OK: fixed 360T7 network config validated."
 echo "  LAN: br-lan = lan1 lan2 lan3"
 echo "  LAN IP: 192.168.6.1/24"
 echo "  DHCP: enabled on LAN"
 echo "  WAN: wan / DHCP"
+
 
 
 #################################################
