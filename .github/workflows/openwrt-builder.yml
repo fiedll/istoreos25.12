@@ -1,5 +1,4 @@
 name: iStoreOS-360T7
-# Trigger a fresh build after workflow validation
 
 on:
   workflow_dispatch:
@@ -294,12 +293,6 @@ jobs:
             '^CONFIG_PACKAGE_luci-app-daede=y' \
             .config
 
-          echo "========== PassWall =========="
-
-          grep \
-            '^CONFIG_PACKAGE_luci-app-passwall=y' \
-            .config
-
           echo "========== MosDNS =========="
 
           grep \
@@ -351,19 +344,12 @@ jobs:
 
           echo "========== Daed BTF dependency =========="
 
-          # The upstream Daed Makefile contains an optional vmlinux-btf
-          # dependency. It is harmless when DAED_USE_VMLINUX_BTF is unset.
-          # iStoreOS 25.12 uses integrated kernel BTF instead.
           grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config
           if grep -q '^CONFIG_KERNEL_DEBUG_INFO_REDUCED=y' .config; then
             echo "ERROR: reduced kernel debug info disables kernel BTF."
             exit 1
           fi
 
-          # The upstream Daed package exposes a Kconfig choice for
-          # vmlinux-btf. iStoreOS 25.12 has no vmlinux-btf package, so
-          # diy-part2.sh removes that optional choice and uses integrated
-          # kernel BTF instead.
           if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_VMLINUX_BTF=y' .config; then
             echo "ERROR: obsolete Daed vmlinux-btf option is enabled."
             exit 1
@@ -470,11 +456,6 @@ jobs:
 
           ccache --zero-stats || true
 
-          # Do not retry a failed full build by invoking a package compile
-          # directly. That can enter a second long-running build path and
-          # leave GitHub Actions in_progress for hours after the real failure.
-          # The full top-level build already prepares all host tools and
-          # dependencies in the correct order.
           BUILD_TIMEOUT_MIN=120
           echo "Full build timeout: ${BUILD_TIMEOUT_MIN} minutes"
 
