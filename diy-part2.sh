@@ -106,7 +106,6 @@ echo "  DHCP: enabled on LAN"
 echo "  WAN: wan / DHCP"
 
 
-
 #################################################
 # 3. Root password
 #################################################
@@ -129,11 +128,11 @@ echo "================================================"
 echo ">>> Cleaning third-party package trees"
 echo "================================================"
 
-rm -rf     package/passwall     package/passwall-packages     package/mosdns     package/daed     package/dae     package/v2ray-geodata
+rm -rf package/passwall package/passwall-packages package/mosdns package/daed package/dae package/v2ray-geodata
 
-rm -rf     package/feeds/base/dae     package/feeds/packages/dae     package/feeds/packages/sing-box     package/feeds/packages/mosdns     package/feeds/packages/v2dat     package/feeds/packages/v2ray-geodata
+rm -rf package/feeds/base/dae package/feeds/packages/dae package/feeds/packages/sing-box package/feeds/packages/mosdns package/feeds/packages/v2dat package/feeds/packages/v2ray-geodata
 
-rm -rf     feeds/packages/net/sing-box     feeds/packages/net/mosdns     feeds/packages/net/v2dat     feeds/packages/net/v2ray-geodata
+rm -rf feeds/packages/net/sing-box feeds/packages/net/mosdns feeds/packages/net/v2dat feeds/packages/net/v2ray-geodata
 
 echo "OK: conflicting package trees removed."
 
@@ -159,11 +158,11 @@ echo "================================================"
 echo ">>> Installing MosDNS v5"
 echo "================================================"
 
-rm -rf     package/mosdns     package/luci-app-mosdns     /tmp/luci-app-mosdns
+rm -rf package/mosdns package/luci-app-mosdns /tmp/luci-app-mosdns
 
-git clone     --depth=1     --single-branch     --branch=v5     https://github.com/sbwml/luci-app-mosdns.git     /tmp/luci-app-mosdns
+git clone --depth=1 --single-branch --branch=v5 https://github.com/sbwml/luci-app-mosdns.git /tmp/luci-app-mosdns
 
-mkdir -p     package/mosdns     package/luci-app-mosdns     package/geo2txt
+mkdir -p package/mosdns package/luci-app-mosdns package/geo2txt
 
 cp -a /tmp/luci-app-mosdns/mosdns/. package/mosdns/
 cp -a /tmp/luci-app-mosdns/luci-app-mosdns/. package/luci-app-mosdns/
@@ -203,7 +202,7 @@ echo "================================================"
 
 rm -rf package/daed package/luci-app-daede package/dae /tmp/openwrt-daede
 
-git clone --depth=1 --single-branch     https://github.com/kenzok8/openwrt-daede.git     /tmp/openwrt-daede
+git clone --depth=1 --single-branch https://github.com/kenzok8/openwrt-daede.git /tmp/openwrt-daede
 
 for pkg in daed luci-app-daede dae; do
     if [ ! -d "/tmp/openwrt-daede/$pkg" ]; then
@@ -273,30 +272,21 @@ echo "OK: old feed Daed removed."
 
 
 #################################################
-# 10. Apply MediaTek Ethernet IRQ compatibility backport
+# 10. MTK Ethernet IRQ backport — 临时禁用
+#     原因: 补丁与 kernel 6.12.x 不匹配，导致
+#     toolchain/kernel-headers 打补丁失败
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Applying MTK Ethernet IRQ backport"
+echo ">>> Skipping MTK Ethernet IRQ backport"
 echo "================================================"
 
-KERNEL_PATCH_DIR="target/linux/generic/pending-6.12"
-KERNEL_IRQ_PATCH="$GITHUB_WORKSPACE/patches/739-net-ethernet-mtk_eth_soc-rework-irq-handling.patch"
+echo "SKIP: 739-net-ethernet-mtk_eth_soc-rework-irq-handling.patch"
+echo "      disabled to unblock toolchain/kernel-headers build."
+echo "      Re-enable only after the patch is regenerated against"
+echo "      the actual iStoreOS 25.12 / kernel 6.12.x sources."
 
-if [ ! -d "$KERNEL_PATCH_DIR" ]; then
-    echo "ERROR: $KERNEL_PATCH_DIR not found."
-    exit 1
-fi
-
-if [ ! -f "$KERNEL_IRQ_PATCH" ]; then
-    echo "ERROR: kernel IRQ backport patch not found: $KERNEL_IRQ_PATCH"
-    exit 1
-fi
-
-cp -f "$KERNEL_IRQ_PATCH" "$KERNEL_PATCH_DIR/739-net-ethernet-mtk_eth_soc-rework-irq-handling.patch"
-
-echo "OK: MTK Ethernet IRQ compatibility backport queued."
 
 #################################################
 # 11. Check 360T7 image definition
@@ -323,7 +313,7 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 11. Final summary
+# 12. Final summary
 #################################################
 
 echo
@@ -348,6 +338,10 @@ echo "  Tailscale"
 echo
 echo "eBPF / BTF:"
 echo "  Enabled"
+
+echo
+echo "MTK IRQ backport:"
+echo "  Disabled (temporary)"
 
 echo
 echo "================================================"
