@@ -39,12 +39,12 @@ echo "OK: qihoo_360t7 target found."
 
 
 #################################################
-# 2. 修改默认 LAN IP
+# 2. 保持上游原始 LAN IP
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Setting LAN IP"
+echo ">>> Checking upstream LAN IP"
 echo "================================================"
 
 CONFIG_GENERATE="package/base-files/files/bin/config_generate"
@@ -55,15 +55,10 @@ if [ ! -f "$CONFIG_GENERATE" ]; then
 fi
 
 if grep -q "192\.168\.1\.1" "$CONFIG_GENERATE"; then
-    sed -i \
-        's/192\.168\.1\.1/192.168.6.1/g' \
-        "$CONFIG_GENERATE"
-fi
-
-if grep -q "192\.168\.6\.1" "$CONFIG_GENERATE"; then
-    echo "OK: LAN IP in config_generate verified as 192.168.6.1"
+    echo "OK: upstream LAN IP remains 192.168.1.1"
 else
-    echo "WARNING: 192.168.6.1 not explicitly found in config_generate, relying on uci-defaults."
+    echo "ERROR: upstream 192.168.1.1 LAN default was not found."
+    exit 1
 fi
 
 
@@ -94,7 +89,7 @@ grep -q "list ports 'lan1'" "$NETWORK_CFG"
 grep -q "list ports 'lan2'" "$NETWORK_CFG"
 grep -q "list ports 'lan3'" "$NETWORK_CFG"
 grep -q "option device 'br-lan'" "$NETWORK_CFG"
-grep -q "list ipaddr '192.168.6.1/24'" "$NETWORK_CFG"
+grep -q "list ipaddr '192.168.1.1/24'" "$NETWORK_CFG"
 grep -q "option device 'wan'" "$NETWORK_CFG"
 grep -q "option proto 'dhcp'" "$NETWORK_CFG"
 
@@ -106,7 +101,7 @@ grep -q "option dhcpv4 'server'" "$DHCP_CFG"
 
 echo "OK: fixed 360T7 network config validated."
 echo "  LAN: br-lan = lan1 lan2 lan3"
-echo "  LAN IP: 192.168.6.1/24"
+echo "  LAN IP: 192.168.1.1/24"
 echo "  DHCP: enabled on LAN"
 echo "  WAN: wan / DHCP"
 
@@ -134,27 +129,11 @@ echo "================================================"
 echo ">>> Cleaning third-party package trees"
 echo "================================================"
 
-rm -rf \
-    package/passwall \
-    package/passwall-packages \
-    package/mosdns \
-    package/daed \
-    package/dae \
-    package/v2ray-geodata
+rm -rf     package/passwall     package/passwall-packages     package/mosdns     package/daed     package/dae     package/v2ray-geodata
 
-rm -rf \
-    package/feeds/base/dae \
-    package/feeds/packages/dae \
-    package/feeds/packages/sing-box \
-    package/feeds/packages/mosdns \
-    package/feeds/packages/v2dat \
-    package/feeds/packages/v2ray-geodata
+rm -rf     package/feeds/base/dae     package/feeds/packages/dae     package/feeds/packages/sing-box     package/feeds/packages/mosdns     package/feeds/packages/v2dat     package/feeds/packages/v2ray-geodata
 
-rm -rf \
-    feeds/packages/net/sing-box \
-    feeds/packages/net/mosdns \
-    feeds/packages/net/v2dat \
-    feeds/packages/net/v2ray-geodata
+rm -rf     feeds/packages/net/sing-box     feeds/packages/net/mosdns     feeds/packages/net/v2dat     feeds/packages/net/v2ray-geodata
 
 echo "OK: conflicting package trees removed."
 
@@ -180,22 +159,11 @@ echo "================================================"
 echo ">>> Installing MosDNS v5"
 echo "================================================"
 
-rm -rf \
-    package/mosdns \
-    package/luci-app-mosdns \
-    /tmp/luci-app-mosdns
+rm -rf     package/mosdns     package/luci-app-mosdns     /tmp/luci-app-mosdns
 
-git clone \
-    --depth=1 \
-    --single-branch \
-    --branch=v5 \
-    https://github.com/sbwml/luci-app-mosdns.git \
-    /tmp/luci-app-mosdns
+git clone     --depth=1     --single-branch     --branch=v5     https://github.com/sbwml/luci-app-mosdns.git     /tmp/luci-app-mosdns
 
-mkdir -p \
-    package/mosdns \
-    package/luci-app-mosdns \
-    package/geo2txt
+mkdir -p     package/mosdns     package/luci-app-mosdns     package/geo2txt
 
 cp -a /tmp/luci-app-mosdns/mosdns/. package/mosdns/
 cp -a /tmp/luci-app-mosdns/luci-app-mosdns/. package/luci-app-mosdns/
@@ -235,9 +203,7 @@ echo "================================================"
 
 rm -rf package/daed package/luci-app-daede package/dae /tmp/openwrt-daede
 
-git clone --depth=1 --single-branch \
-    https://github.com/kenzok8/openwrt-daede.git \
-    /tmp/openwrt-daede
+git clone --depth=1 --single-branch     https://github.com/kenzok8/openwrt-daede.git     /tmp/openwrt-daede
 
 for pkg in daed luci-app-daede dae; do
     if [ ! -d "/tmp/openwrt-daede/$pkg" ]; then
@@ -371,7 +337,7 @@ echo "  MediaTek Filogic MT7981 (Qihoo 360T7)"
 
 echo
 echo "LAN:"
-echo "  192.168.6.1 (Ports: lan1 lan2 lan3)"
+echo "  192.168.1.1 (Ports: lan1 lan2 lan3)"
 
 echo
 echo "Packages:"

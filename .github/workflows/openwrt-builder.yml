@@ -281,7 +281,7 @@ jobs:
           grep -q "list ports 'lan2'" "$NETWORK_CFG"
           grep -q "list ports 'lan3'" "$NETWORK_CFG"
           grep -q "option device 'br-lan'" "$NETWORK_CFG"
-          grep -q "list ipaddr '192.168.6.1/24'" "$NETWORK_CFG"
+          grep -q "list ipaddr '192.168.1.1/24'" "$NETWORK_CFG"
           grep -q "option device 'wan'" "$NETWORK_CFG"
           grep -q "option proto 'dhcp'" "$NETWORK_CFG"
 
@@ -613,7 +613,7 @@ jobs:
           Qihoo 360T7
 
           LAN IP:
-          192.168.6.1 (Ports: lan1 lan2 lan3)
+          192.168.1.1 (Ports: lan1 lan2 lan3)
 
           Source:
           iStoreOS $REPO_BRANCH
