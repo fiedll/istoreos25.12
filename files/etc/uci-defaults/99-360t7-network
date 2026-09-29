@@ -1,8 +1,9 @@
 #!/bin/sh
 
-# Force the known-good first-boot network layout for Qihoo 360T7.
-# Official 25.12 uses LAN: lan1/lan2/lan3 and WAN: wan.
-# Apply once on the initial boot for both standard and UBI layouts.
+# One-time first-boot network initialization for Qihoo 360T7 on iStoreOS 25.12.
+# Official 25.12 maps LAN to lan1/lan2/lan3 and WAN to wan.
+# This script creates the complete initial network and DHCP configuration
+# instead of modifying individual auto-generated UCI device entries.
 
 [ -x /sbin/uci ] || exit 0
 

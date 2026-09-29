@@ -68,52 +68,44 @@ fi
 
 
 #################################################
-# 2b. 注入 360T7 首次开机网络修复 (解决无法获取 IP)
+# 2b. 使用仓库内唯一的 360T7 首次开机网络配置
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Injecting 360T7 network defaults"
+echo ">>> Installing 360T7 network defaults"
 echo "================================================"
 
-UCI_DEF_DIR="package/base-files/files/etc/uci-defaults"
-mkdir -p "$UCI_DEF_DIR"
-NETWORK_FIX="$UCI_DEF_DIR/99-360t7-network"
+NETWORK_FIX_SRC="$GITHUB_WORKSPACE/files/etc/uci-defaults/99-360t7-network"
+NETWORK_FIX_DST="package/base-files/files/etc/uci-defaults/99-360t7-network"
 
-cat > "$NETWORK_FIX" <<'EOF'
-#!/bin/sh
-uci -q batch <<MAKER
-set network.lan=interface
-set network.lan.proto='static'
-set network.lan.ipaddr='192.168.6.1'
-set network.lan.netmask='255.255.255.0'
-set network.lan.device='br-lan'
+if [ ! -f "$NETWORK_FIX_SRC" ]; then
+    echo "ERROR: canonical 360T7 network defaults not found: $NETWORK_FIX_SRC"
+    exit 1
+fi
 
-delete network.@device[0] 2>/dev/null || true
-set network.br_lan=device
-set network.br_lan.name='br-lan'
-set network.br_lan.type='bridge'
-add_list network.br_lan.ports='lan1'
-add_list network.br_lan.ports='lan2'
-add_list network.br_lan.ports='lan3'
+mkdir -p "$(dirname "$NETWORK_FIX_DST")"
+cp -f "$NETWORK_FIX_SRC" "$NETWORK_FIX_DST"
+chmod +x "$NETWORK_FIX_DST"
 
-set network.wan=interface
-set network.wan.device='wan'
-set network.wan.proto='dhcp'
+grep -q "option ipaddr '192.168.6.1'" "$NETWORK_FIX_DST"
+grep -q "option name 'br-lan'" "$NETWORK_FIX_DST"
+grep -q "list ports 'lan1'" "$NETWORK_FIX_DST"
+grep -q "list ports 'lan2'" "$NETWORK_FIX_DST"
+grep -q "list ports 'lan3'" "$NETWORK_FIX_DST"
+grep -q "option device 'wan'" "$NETWORK_FIX_DST"
+grep -q "option proto 'dhcp'" "$NETWORK_FIX_DST"
+grep -q "uci -q set dhcp.lan.dhcpv4='server'" "$NETWORK_FIX_DST"
 
-set network.wan6=interface
-set network.wan6.device='wan'
-set network.wan6.proto='dhcpv6'
-MAKER
-uci commit network
-exit 0
-EOF
-chmod +x "$NETWORK_FIX"
+if grep -q "delete network.@device\[0\]" "$NETWORK_FIX_DST"; then
+    echo "ERROR: unsafe wildcard UCI device deletion detected."
+    exit 1
+fi
 
-echo "OK: 360T7 first-boot network repair configured."
+echo "OK: canonical 360T7 first-boot network configuration installed."
 echo "  LAN: br-lan = lan1 lan2 lan3"
 echo "  LAN IP: 192.168.6.1/24"
-echo "  DHCP: dnsmasq-full"
+echo "  DHCP: enabled on LAN"
 echo "  WAN: wan / DHCP"
 
 
