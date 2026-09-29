@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -euo pipefail
 
 echo "================================================"
@@ -15,11 +14,9 @@ echo
 echo ">>> Git:"
 git log -1 --oneline || true
 
-
 #################################################
 # 1. 检查 360T7 target
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Checking 360T7 target"
@@ -37,11 +34,9 @@ fi
 
 echo "OK: qihoo_360t7 target found."
 
-
 #################################################
 # 2. 保持上游原始 LAN IP
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Checking upstream LAN IP"
@@ -61,17 +56,14 @@ else
     exit 1
 fi
 
-
 #################################################
 # 2b. 去掉强制 network/dhcp，改由 board.d 生成
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Removing forced network/dhcp overlays"
 echo "================================================"
 
-# 仓库 / 工作区里若仍有空文件或旧配置，构建时一律清掉
 rm -f \
     "${GITHUB_WORKSPACE:-}/files/etc/config/network" \
     "${GITHUB_WORKSPACE:-}/files/etc/config/dhcp" \
@@ -82,24 +74,19 @@ rm -f \
 echo "OK: forced network/dhcp removed; board.d will generate defaults."
 echo "  Expected: LAN=lan1/lan2/lan3 @ 192.168.1.1, WAN=wan (DHCP)"
 
-
 #################################################
 # 3. Root password
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Root password"
 echo "================================================"
-
 echo "No hard-coded root password will be installed."
 echo "User should initialize the password after first boot."
-
 
 #################################################
 # 4. 清理第三方源码及 feed 冲突
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Cleaning third-party package trees"
@@ -129,11 +116,9 @@ rm -rf \
 
 echo "OK: conflicting package trees removed."
 
-
 #################################################
 # 5. 克隆 v2ray-geodata 依赖
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Cloning v2ray-geodata"
@@ -141,11 +126,9 @@ echo "================================================"
 
 git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
 
-
 #################################################
 # 6. Install MosDNS v5
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Installing MosDNS v5"
@@ -175,12 +158,10 @@ if [ ! -f "package/mosdns/Makefile" ]; then
     echo "ERROR: package/mosdns/Makefile not found."
     exit 1
 fi
-
 if [ ! -f "package/luci-app-mosdns/Makefile" ]; then
     echo "ERROR: package/luci-app-mosdns/Makefile not found."
     exit 1
 fi
-
 if [ ! -f "package/geo2txt/Makefile" ]; then
     echo "ERROR: package/geo2txt/Makefile not found."
     exit 1
@@ -188,11 +169,9 @@ fi
 
 echo "OK: MosDNS source installed."
 
-
 #################################################
 # 7. Install Daed & 修复依赖
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Installing Daed"
@@ -218,7 +197,6 @@ cp -a /tmp/openwrt-daede/luci-app-daede package/luci-app-daede
 cp -a /tmp/openwrt-daede/dae package/dae
 rm -rf package/daed/vmlinux-btf /tmp/openwrt-daede
 
-# 去掉对外部 vmlinux-btf 软件包的硬依赖
 sed -i 's/+vmlinux-btf//g' package/daed/Makefile 2>/dev/null || true
 sed -i 's/+vmlinux-btf//g' package/dae/Makefile 2>/dev/null || true
 
@@ -227,11 +205,9 @@ test -f package/luci-app-daede/Makefile
 
 echo "OK: known-good kenzok8 Daed tree installed."
 
-
 #################################################
 # 8. Install & Check Tailscale
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Installing Tailscale from feeds"
@@ -250,11 +226,9 @@ fi
 
 echo "OK: Tailscale installed from feeds."
 
-
 #################################################
 # 9. Verify Package Trees
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Verifying Package Trees"
@@ -276,24 +250,19 @@ if [ -e "package/feeds/base/dae" ]; then
 fi
 echo "OK: old feed Daed removed."
 
-
 #################################################
 # 10. MTK Ethernet IRQ backport — 临时禁用
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Skipping MTK Ethernet IRQ backport"
 echo "================================================"
-
 echo "SKIP: 739-net-ethernet-mtk_eth_soc-rework-irq-handling.patch"
 echo "      disabled to unblock toolchain/kernel-headers build."
-
 
 #################################################
 # 11. Check 360T7 image definition
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Checking 360T7 image definition"
@@ -313,36 +282,28 @@ fi
 
 echo "OK: 360T7 image definition found."
 
-
 #################################################
 # 12. Final summary
 #################################################
-
 echo
 echo "================================================"
 echo ">>> Final configuration summary"
 echo "================================================"
-
 echo
 echo "Target:"
 echo "  MediaTek Filogic MT7981 (Qihoo 360T7)"
-
 echo
 echo "Network:"
 echo "  board.d auto: LAN=lan1/2/3 @ 192.168.1.1, WAN=wan"
-
 echo
 echo "Packages:"
 echo "  Daed / MosDNS / Tailscale / WiFi (mt7915e)"
-
 echo
 echo "eBPF / BTF:"
 echo "  Enabled"
-
 echo
 echo "MTK IRQ backport:"
 echo "  Disabled (temporary)"
-
 echo
 echo "================================================"
 echo ">>> DIY Part 2 completed successfully"
