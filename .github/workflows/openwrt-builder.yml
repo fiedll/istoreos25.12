@@ -40,6 +40,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+
       #################################################
       # Free disk space + swap
       #################################################
@@ -69,6 +70,7 @@ jobs:
 
           echo "========== DISK =========="
           df -h
+
 
       #################################################
       # Build environment
@@ -161,8 +163,6 @@ jobs:
           fi
 
           CLANG_PATH="$(readlink -f "$CLANG_PATH")"
-          LLVM_STRIP_PATH="$(readlink -f "$LLVM_STRIP_PATH")"
-
           if [ ! -x "$CLANG_PATH" ]; then
             echo "ERROR: resolved clang path is not executable: $CLANG_PATH"
             exit 1
@@ -176,7 +176,9 @@ jobs:
           echo "CLANG_PATH=$CLANG_PATH" >> "$GITHUB_ENV"
           echo "LLVM_STRIP_PATH=$LLVM_STRIP_PATH" >> "$GITHUB_ENV"
 
-          sudo ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
+          sudo ln -sf \
+            "/usr/share/zoneinfo/$TZ" \
+            /etc/localtime
 
           echo "========== TOOLCHAIN =========="
           echo "CLANG_PATH=$CLANG_PATH"
@@ -187,6 +189,7 @@ jobs:
           pahole --version || true
           gcc --version | head -n 1
           git --version
+
 
       #################################################
       # Clone iStoreOS
@@ -210,6 +213,7 @@ jobs:
 
           echo "========== BRANCH =========="
           git branch --show-current
+
 
       #################################################
       # Load feeds
@@ -238,6 +242,7 @@ jobs:
           echo "========== FEEDS =========="
           ./scripts/feeds list
 
+
       #################################################
       # Load config + DIY2
       #################################################
@@ -248,7 +253,7 @@ jobs:
 
           cd "$GITHUB_WORKSPACE"
 
-          # 可选：若仍残留 files/，可拷贝；网络配置已不再强制要求
+          # 拷贝 files/（网络配置已改由 board.d 生成，不再强制覆盖）
           if [ -d files ]; then
             rm -rf openwrt/files
             cp -a files openwrt/files
@@ -287,6 +292,7 @@ jobs:
           echo "========== WiFi =========="
           grep '^CONFIG_PACKAGE_kmod-mt7915e=y' .config
           grep '^CONFIG_PACKAGE_wpad-basic-mbedtls=y' .config
+
 
       #################################################
       # Verify package tree after defconfig
@@ -328,6 +334,7 @@ jobs:
 
           echo "OK: old feed Daed removed."
 
+
       #################################################
       # Reset Go caches
       #################################################
@@ -338,10 +345,16 @@ jobs:
 
           cd openwrt
 
-          rm -rf dl/go-mod-cache tmp/go-build
-          mkdir -p dl/go-mod-cache tmp/go-build
+          rm -rf \
+            dl/go-mod-cache \
+            tmp/go-build
+
+          mkdir -p \
+            dl/go-mod-cache \
+            tmp/go-build
 
           echo "Go build/module cache reset."
+
 
       #################################################
       # Download sources
@@ -356,8 +369,18 @@ jobs:
           make download -j"$(nproc)"
 
           echo "========== Invalid Small Files =========="
-          find dl -type f -size -1024c -print -exec ls -lh {} \; || true
-          find dl -type f -size -1024c -delete
+          find dl \
+            -type f \
+            -size -1024c \
+            -print \
+            -exec ls -lh {} \; \
+            || true
+
+          find dl \
+            -type f \
+            -size -1024c \
+            -delete
+
 
       #################################################
       # Compile
@@ -383,6 +406,7 @@ jobs:
           grep '^PKG_RELEASE:=' package/daed/Makefile
 
           echo "========== Start Full Compile =========="
+
           ccache --zero-stats || true
 
           BUILD_TIMEOUT_MIN=120
@@ -412,6 +436,7 @@ jobs:
 
           echo "========== CCACHE STATS =========="
           ccache --show-stats || true
+
 
       #################################################
       # Check firmware
@@ -445,6 +470,7 @@ jobs:
           echo "========== 360T7 LAYOUT IMAGES =========="
           find "$TARGET_DIR" -maxdepth 1 -type f -name '*360t7*.itb' -printf '%f %s bytes\n' | sort
 
+
       #################################################
       # Organize firmware
       #################################################
@@ -463,6 +489,7 @@ jobs:
 
           ls -lah
 
+
       #################################################
       # Upload artifact
       #################################################
@@ -474,6 +501,7 @@ jobs:
           path: ${{ env.FIRMWARE }}/*
           if-no-files-found: error
           retention-days: 7
+
 
       #################################################
       # Generate release information
@@ -504,6 +532,7 @@ jobs:
           EOF
 
           cat release.txt
+
 
       #################################################
       # Release
