@@ -307,7 +307,33 @@ echo "OK: old feed Daed removed."
 
 
 #################################################
-# 10. Check 360T7 image definition
+# 10. Apply MediaTek Ethernet IRQ compatibility backport
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Applying MTK Ethernet IRQ backport"
+echo "================================================"
+
+KERNEL_PATCH_DIR="target/linux/generic/pending-6.12"
+KERNEL_IRQ_PATCH="$GITHUB_WORKSPACE/patches/739-net-ethernet-mtk_eth_soc-rework-irq-handling.patch"
+
+if [ ! -d "$KERNEL_PATCH_DIR" ]; then
+    echo "ERROR: $KERNEL_PATCH_DIR not found."
+    exit 1
+fi
+
+if [ ! -f "$KERNEL_IRQ_PATCH" ]; then
+    echo "ERROR: kernel IRQ backport patch not found: $KERNEL_IRQ_PATCH"
+    exit 1
+fi
+
+cp -f "$KERNEL_IRQ_PATCH" "$KERNEL_PATCH_DIR/739-net-ethernet-mtk_eth_soc-rework-irq-handling.patch"
+
+echo "OK: MTK Ethernet IRQ compatibility backport queued."
+
+#################################################
+# 11. Check 360T7 image definition
 #################################################
 
 echo
