@@ -68,12 +68,12 @@ fi
 
 
 #################################################
-# 2b. 注入 360T7 首次开机网络修复 (UCI Defaults)
+# 2b. 注入 360T7 首次开机网络修复 (解决无法获取 IP)
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Checking 360T7 network defaults"
+echo ">>> Injecting 360T7 network defaults"
 echo "================================================"
 
 UCI_DEF_DIR="package/base-files/files/etc/uci-defaults"
@@ -257,7 +257,6 @@ echo "================================================"
 echo ">>> Installing Tailscale from feeds"
 echo "================================================"
 
-# 从官方 feeds 树安装 Tailscale 及常用社区 LuCI 界面
 ./scripts/feeds install tailscale luci-app-tailscale-community luci-i18n-tailscale-community-zh-cn || true
 
 if [ ! -f "feeds/packages/net/tailscale/Makefile" ]; then
