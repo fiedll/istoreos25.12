@@ -134,7 +134,7 @@ echo "================================================"
 echo ">>> Installing MosDNS v5"
 echo "================================================"
 
-rm -rf package/mosdns package/luci-app-mosdns /tmp/luci-app-mosdns
+rm -rf package/mosdns package/luci-app-mosdns package/geo2txt /tmp/luci-app-mosdns
 
 git clone \
     --depth=1 \
@@ -143,13 +143,18 @@ git clone \
     https://github.com/sbwml/luci-app-mosdns.git \
     /tmp/luci-app-mosdns
 
-mkdir -p package/mosdns package/luci-app-mosdns package/geo2txt
+mkdir -p package/mosdns package/luci-app-mosdns
 
 cp -a /tmp/luci-app-mosdns/mosdns/. package/mosdns/
 cp -a /tmp/luci-app-mosdns/luci-app-mosdns/. package/luci-app-mosdns/
 
+# geo2txt 为可选组件
 if [ -d /tmp/luci-app-mosdns/geo2txt ]; then
+    mkdir -p package/geo2txt
     cp -a /tmp/luci-app-mosdns/geo2txt/. package/geo2txt/
+    echo "OK: geo2txt included."
+else
+    echo "WARN: geo2txt directory not found in upstream, skipped."
 fi
 
 rm -rf /tmp/luci-app-mosdns
@@ -160,10 +165,6 @@ if [ ! -f "package/mosdns/Makefile" ]; then
 fi
 if [ ! -f "package/luci-app-mosdns/Makefile" ]; then
     echo "ERROR: package/luci-app-mosdns/Makefile not found."
-    exit 1
-fi
-if [ ! -f "package/geo2txt/Makefile" ]; then
-    echo "ERROR: package/geo2txt/Makefile not found."
     exit 1
 fi
 
@@ -197,6 +198,7 @@ cp -a /tmp/openwrt-daede/luci-app-daede package/luci-app-daede
 cp -a /tmp/openwrt-daede/dae package/dae
 rm -rf package/daed/vmlinux-btf /tmp/openwrt-daede
 
+# 移除对独立 vmlinux-btf 包的依赖（使用内核内置 BTF）
 sed -i 's/+vmlinux-btf//g' package/daed/Makefile 2>/dev/null || true
 sed -i 's/+vmlinux-btf//g' package/dae/Makefile 2>/dev/null || true
 
@@ -213,14 +215,15 @@ echo "================================================"
 echo ">>> Installing Tailscale from feeds"
 echo "================================================"
 
+# 去掉 || true，让安装失败直接暴露
 ./scripts/feeds install \
     tailscale \
     luci-app-tailscale-community \
-    luci-i18n-tailscale-community-zh-cn \
-    || true
+    luci-i18n-tailscale-community-zh-cn
 
-if [ ! -f "feeds/packages/net/tailscale/Makefile" ]; then
-    echo "ERROR: Tailscale package not found in feeds."
+if [ ! -f "feeds/packages/net/tailscale/Makefile" ] && \
+   [ ! -f "package/feeds/packages/tailscale/Makefile" ]; then
+    echo "ERROR: Tailscale package not found after feeds install."
     exit 1
 fi
 
