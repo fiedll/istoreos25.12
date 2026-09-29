@@ -36,7 +36,7 @@ jobs:
       #################################################
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
 
       #################################################
@@ -266,7 +266,6 @@ jobs:
           cd openwrt
 
           chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
-
           "$GITHUB_WORKSPACE/$DIY_P2_SH"
 
           echo "========== Running make defconfig =========="
@@ -610,11 +609,10 @@ jobs:
           Source:
           iStoreOS $REPO_BRANCH
 
-          Daed:
-          daed_2026.07.31-r1
-
-          LAN IP:
-          192.168.6.1
+          Included Packages:
+          - Daed
+          - MosDNS v5
+          - Tailscale
 
           Build Date:
           $(date +"%Y-%m-%d %H:%M:%S")
