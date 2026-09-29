@@ -108,36 +108,21 @@ diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/
  	for (i = 0; i < ARRAY_SIZE(eth->clks); i++) {
  		eth->clks[i] = devm_clk_get(eth->dev,
  					    mtk_clks_source_name[i]);
-@@ -5159,17 +5194,17 @@ static int mtk_probe(struct platform_device *pdev)
- 	}
- 
- 	if (MTK_HAS_CAPS(eth->soc->caps, MTK_SHARED_INT)) {
+@@ -5043,11 +5086,11 @@ static int mtk_probe(struct platform_device *pdev)
 -		err = devm_request_irq(eth->dev, eth->irq[0],
 +		err = devm_request_irq(eth->dev, eth->irq[MTK_FE_IRQ_SHARED],
- 				       mtk_handle_irq, 0,
- 			       dev_name(eth->dev), eth);
- 	} else {
+@@ -5047,9 +5090,9 @@ static int mtk_probe(struct platform_device *pdev)
 -		err = devm_request_irq(eth->dev, eth->irq[1],
 +		err = devm_request_irq(eth->dev, eth->irq[MTK_FE_IRQ_TX],
- 				       mtk_handle_irq_tx, 0,
- 			       dev_name(eth->dev), eth);
- 		if (err)
- 			goto err_free_dev;
- 
+@@ -5053,4 +5096,4 @@ static int mtk_probe(struct platform_device *pdev)
 -		err = devm_request_irq(eth->dev, eth->irq[2],
 +		err = devm_request_irq(eth->dev, eth->irq[MTK_FE_IRQ_RX],
  				       mtk_handle_irq_rx, 0,
- 			       dev_name(eth->dev), eth);
+ 				       dev_name(eth->dev), eth);
  	}
-@@ -5215,7 +5250,7 @@ static int mtk_probe(struct platform_device *pdev)
- 		} else
- 			netif_info(eth, probe, eth->netdev[i],
- 				   "mediatek frame engine at 0x%08lx, irq %d\n",
+@@ -5099 +5142 @@ static int mtk_probe(struct platform_device *pdev)
 -				   eth->netdev[i]->base_addr, eth->irq[0]);
 +				   eth->netdev[i]->base_addr, eth->irq[MTK_FE_IRQ_SHARED]);
- 	}
- 
- 	/* we run 2 devices on the same DMA ring so we need a dummy device */
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
