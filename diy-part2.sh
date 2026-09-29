@@ -4,7 +4,7 @@ set -euo pipefail
 
 echo "================================================"
 echo " iStoreOS 25.12 / 360T7"
-echo " Daed + MosDNS"
+echo " Daed + MosDNS + Tailscale"
 echo "================================================"
 
 echo
@@ -68,7 +68,7 @@ fi
 
 
 #################################################
-# 2b. 检查并注入 360T7 首次开机网络修复 (UCI Defaults)
+# 2b. 注入 360T7 首次开机网络修复 (UCI Defaults)
 #################################################
 
 echo
@@ -76,7 +76,6 @@ echo "================================================"
 echo ">>> Checking 360T7 network defaults"
 echo "================================================"
 
-# 如果外部仓库没有挂载 files，则在源码树内直接动态生成，防止脚本报错中断
 UCI_DEF_DIR="package/base-files/files/etc/uci-defaults"
 mkdir -p "$UCI_DEF_DIR"
 NETWORK_FIX="$UCI_DEF_DIR/99-360t7-network"
@@ -250,78 +249,53 @@ echo "OK: known-good kenzok8 Daed tree installed."
 
 
 #################################################
-# 7. Verify Daed package tree
+# 7. Install & Check Tailscale
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Verifying Daed package tree"
+echo ">>> Installing Tailscale from feeds"
 echo "================================================"
 
-echo
-echo "[Daed Makefiles]"
+# 从官方 feeds 树安装 Tailscale 及常用社区 LuCI 界面
+./scripts/feeds install tailscale luci-app-tailscale-community luci-i18n-tailscale-community-zh-cn || true
 
-find package/daed \
-    -maxdepth 3 \
-    -type f \
-    -name Makefile \
-    -print
-
-if [ ! -f "package/daed/Makefile" ]; then
-    echo "ERROR: Daed backend Makefile not found."
+if [ ! -f "feeds/packages/net/tailscale/Makefile" ]; then
+    echo "ERROR: Tailscale package not found in feeds."
     exit 1
 fi
 
-if [ ! -f "package/luci-app-daede/Makefile" ]; then
-    echo "ERROR: Daed LuCI Makefile not found."
-    exit 1
-fi
-
-echo "OK: Daed backend Makefile found."
-echo "OK: Daed LuCI Makefile found."
+echo "OK: Tailscale installed from feeds."
 
 
 #################################################
-# 8. Verify MosDNS
+# 8. Verify Package Trees
 #################################################
 
 echo
 echo "================================================"
-echo ">>> Verifying MosDNS"
+echo ">>> Verifying Package Trees"
 echo "================================================"
 
-if ! find package/mosdns \
-    -type f \
-    -name Makefile \
-    -print -quit |
-    grep -q .; then
+test -f package/daed/Makefile
+test -f package/luci-app-daede/Makefile
+echo "OK: Daed backend & LuCI found."
 
+if ! find package/mosdns -type f -name Makefile -print -quit | grep -q .; then
     echo "ERROR: MosDNS Makefile not found."
     exit 1
 fi
-
-echo "OK: MosDNS Makefile found."
-
-
-#################################################
-# 9. Check old feed Daed
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking old Daed feed"
-echo "================================================"
+echo "OK: MosDNS found."
 
 if [ -e "package/feeds/base/dae" ]; then
     echo "ERROR: old package/feeds/base/dae still exists."
     exit 1
 fi
-
 echo "OK: old feed Daed removed."
 
 
 #################################################
-# 10. Check 360T7 image definition
+# 9. Check 360T7 image definition
 #################################################
 
 echo
@@ -345,7 +319,7 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 11. Check target configuration
+# 10. Check target configuration
 #################################################
 
 echo
@@ -375,24 +349,18 @@ if [ -f ".config" ]; then
 
     echo "OK: Daed uses integrated kernel BTF."
 
-    if ! grep -q \
-        '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' \
-        .config; then
-
+    if ! grep -q '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' .config; then
         echo "ERROR: standard 360T7 target is not enabled."
         exit 1
     fi
 
-    if ! grep -q \
-        '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7-ubi=y' \
-        .config; then
+    if ! grep -q '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7-ubi=y' .config; then
         echo "ERROR: 360T7 UBI target is not enabled."
         exit 1
     fi
 
     echo "OK: standard 360T7 target enabled."
     echo "OK: 360T7 UBI target enabled."
-
 else
     echo "WARNING: .config does not exist yet."
     echo "make defconfig will generate it later."
@@ -400,117 +368,7 @@ fi
 
 
 #################################################
-# 12. Check eBPF / BTF configuration
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking eBPF / BTF configuration"
-echo "================================================"
-
-if [ -f ".config" ]; then
-
-    grep -E \
-        '^(CONFIG_DEVEL|CONFIG_BPF_TOOLCHAIN_HOST|CONFIG_KERNEL_DEBUG_INFO|CONFIG_KERNEL_DEBUG_INFO_BTF|CONFIG_KERNEL_CGROUPS|CONFIG_KERNEL_CGROUP_BPF|CONFIG_KERNEL_BPF_EVENTS|CONFIG_KERNEL_XDP_SOCKETS|CONFIG_PACKAGE_kmod-xdp-sockets-diag)' \
-        .config \
-        || true
-
-fi
-
-
-#################################################
-# 13. Check Daed package version
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking Daed package version"
-echo "================================================"
-
-DAED_MAKEFILE="package/daed/Makefile"
-
-DAED_PKG_NAME="$(
-    sed -n 's/^PKG_NAME:=//p' "$DAED_MAKEFILE" | head -n 1
-)"
-
-DAED_PKG_VERSION="$(
-    sed -n 's/^PKG_VERSION:=//p' "$DAED_MAKEFILE" | head -n 1
-)"
-
-DAED_PKG_RELEASE="$(
-    sed -n 's/^PKG_RELEASE:=//p' "$DAED_MAKEFILE" | head -n 1
-)"
-
-echo "PKG_NAME:    $DAED_PKG_NAME"
-echo "PKG_VERSION: $DAED_PKG_VERSION"
-echo "PKG_RELEASE: $DAED_PKG_RELEASE"
-
-if [ "$DAED_PKG_NAME" != "daed" ]; then
-    echo "ERROR: Unexpected Daed PKG_NAME."
-    exit 1
-fi
-
-if [ -z "$DAED_PKG_VERSION" ]; then
-    echo "ERROR: Daed PKG_VERSION is empty."
-    exit 1
-fi
-
-if [ -z "$DAED_PKG_RELEASE" ]; then
-    echo "ERROR: Daed PKG_RELEASE is empty."
-    exit 1
-fi
-
-echo "OK: Daed package metadata found."
-
-
-#################################################
-# 14. Third-party revisions
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Third-party package revisions"
-echo "================================================"
-
-echo
-echo "[Daed]"
-git -C package/daed describe --tags --always || true
-git -C package/daed log -1 --oneline || true
-
-echo
-echo "[MosDNS]"
-git -C package/mosdns log -1 --oneline || true
-
-
-#################################################
-# 15. Final package tree
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Final package tree"
-echo "================================================"
-
-echo
-echo "[Daed]"
-find package/daed \
-    -maxdepth 3 \
-    -type f \
-    -name Makefile \
-    -print
-
-echo
-echo "[MosDNS]"
-find package/mosdns \
-    -maxdepth 3 \
-    -type f \
-    -name Makefile \
-    -print \
-    | head -50
-
-
-#################################################
-# 16. Final summary
+# 11. Final summary
 #################################################
 
 echo
@@ -520,22 +378,18 @@ echo "================================================"
 
 echo
 echo "Target:"
-echo "  MediaTek Filogic"
-echo "  MT7981"
-echo "  Qihoo 360T7 (standard + UBI images)"
+echo "  MediaTek Filogic MT7981"
+echo "  Qihoo 360T7 (standard + UBI)"
 
 echo
 echo "LAN:"
-echo "  192.168.6.1"
+echo "  192.168.6.1 (Ports: lan1 lan2 lan3)"
 
 echo
 echo "Packages:"
 echo "  Daed"
 echo "  MosDNS"
-
-echo
-echo "Daed:"
-echo "  $DAED_PKG_NAME $DAED_PKG_VERSION-$DAED_PKG_RELEASE"
+echo "  Tailscale"
 
 echo
 echo "eBPF / BTF:"
