@@ -11,60 +11,77 @@ on:
 env:
   REPO_URL: https://github.com/istoreos/istoreos
   REPO_BRANCH: istoreos-25.12
+
   FEEDS_CONF: feeds.conf.default
   CONFIG_FILE: .config
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
+
   TZ: Asia/Shanghai
 
 jobs:
   build:
     name: Build 360T7 Firmware
     runs-on: ubuntu-24.04
+
     permissions:
       contents: write
+
     defaults:
       run:
         shell: bash
+
     steps:
+
       #################################################
       # Checkout
       #################################################
+
       - name: Checkout
         uses: actions/checkout@v4
 
       #################################################
       # Free disk space + swap
       #################################################
+
       - name: Free Disk Space & Setup Swap
         run: |
           set -euxo pipefail
+
           sudo rm -rf \
             /usr/share/dotnet \
             /usr/local/lib/android \
             /opt/ghc \
             /opt/hostedtoolcache/CodeQL
+
           sudo docker image prune -af || true
+
           sudo swapoff -a || true
           sudo rm -f /swapfile
+
           sudo fallocate -l 8G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
+
           echo "========== MEMORY =========="
           free -h
+
           echo "========== DISK =========="
           df -h
 
       #################################################
       # Build environment
       #################################################
+
       - name: Setup Build Environment
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
           set -euxo pipefail
+
           sudo apt-get update
+
           sudo apt-get install -y \
             ack \
             asciidoc \
@@ -125,34 +142,42 @@ jobs:
             xmlto \
             xxd \
             zlib1g-dev
+
           CLANG_PATH="$(command -v clang || true)"
           LLVM_STRIP_PATH="$(command -v llvm-strip || true)"
+
           if [ -z "$CLANG_PATH" ] || [ ! -x "$CLANG_PATH" ]; then
             echo "ERROR: clang executable not found."
             dpkg -l | grep -E '^ii[[:space:]]+(clang|llvm|lld)' || true
             find /usr -type f -name clang -executable 2>/dev/null | head -50 || true
             exit 1
           fi
+
           if [ -z "$LLVM_STRIP_PATH" ] || [ ! -x "$LLVM_STRIP_PATH" ]; then
             echo "ERROR: llvm-strip executable not found."
             dpkg -l | grep -E '^ii[[:space:]]+(llvm|lld)' || true
             find /usr -type f -name llvm-strip -executable 2>/dev/null | head -50 || true
             exit 1
           fi
+
           CLANG_PATH="$(readlink -f "$CLANG_PATH")"
+          LLVM_STRIP_PATH="$(readlink -f "$LLVM_STRIP_PATH")"
+
           if [ ! -x "$CLANG_PATH" ]; then
             echo "ERROR: resolved clang path is not executable: $CLANG_PATH"
             exit 1
           fi
+
           if [ ! -x "$LLVM_STRIP_PATH" ]; then
             echo "ERROR: resolved llvm-strip path is not executable: $LLVM_STRIP_PATH"
             exit 1
           fi
+
           echo "CLANG_PATH=$CLANG_PATH" >> "$GITHUB_ENV"
           echo "LLVM_STRIP_PATH=$LLVM_STRIP_PATH" >> "$GITHUB_ENV"
-          sudo ln -sf \
-            "/usr/share/zoneinfo/$TZ" \
-            /etc/localtime
+
+          sudo ln -sf "/usr/share/zoneinfo/$TZ" /etc/localtime
+
           echo "========== TOOLCHAIN =========="
           echo "CLANG_PATH=$CLANG_PATH"
           echo "LLVM_STRIP_PATH=$LLVM_STRIP_PATH"
@@ -166,55 +191,67 @@ jobs:
       #################################################
       # Clone iStoreOS
       #################################################
+
       - name: Clone Source Code
         run: |
           set -euxo pipefail
+
           git clone \
             --depth=1 \
             --single-branch \
             --branch="$REPO_BRANCH" \
             "$REPO_URL" \
             openwrt
+
           cd openwrt
+
           echo "========== SOURCE =========="
           git log -1 --oneline
+
           echo "========== BRANCH =========="
           git branch --show-current
 
       #################################################
       # Load feeds
       #################################################
+
       - name: Load Feeds & Update
         run: |
           set -euxo pipefail
+
           cd "$GITHUB_WORKSPACE"
+
           if [ -f "$FEEDS_CONF" ]; then
             cp "$FEEDS_CONF" openwrt/feeds.conf.default
           fi
+
           cd openwrt
+
           if [ -f "$GITHUB_WORKSPACE/$DIY_P1_SH" ]; then
             chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
             "$GITHUB_WORKSPACE/$DIY_P1_SH"
           fi
+
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+
           echo "========== FEEDS =========="
           ./scripts/feeds list
 
       #################################################
-      # Load config + DIY2（不再强制校验 network/dhcp）
+      # Load config + DIY2
       #################################################
+
       - name: Load Config & Run DIY2
         run: |
           set -euxo pipefail
+
           cd "$GITHUB_WORKSPACE"
 
+          # 可选：若仍残留 files/，可拷贝；网络配置已不再强制要求
           if [ -d files ]; then
             rm -rf openwrt/files
             cp -a files openwrt/files
-            # 去掉强制 network/dhcp，交给 board.d 生成
-            rm -f openwrt/files/etc/config/network \
-                  openwrt/files/etc/config/dhcp 2>/dev/null || true
           fi
 
           if [ -f "$CONFIG_FILE" ]; then
@@ -225,19 +262,15 @@ jobs:
           fi
 
           cd openwrt
+
           chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
           "$GITHUB_WORKSPACE/$DIY_P2_SH"
-
-          # 双保险：DIY2 之后再清一次
-          rm -f files/etc/config/network files/etc/config/dhcp 2>/dev/null || true
 
           echo "========== Running make defconfig =========="
           make defconfig
 
           echo "========== Target =========="
-          grep -E \
-            '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7(-ubi)?=y' \
-            .config
+          grep -E '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7(-ubi)?=y' .config
 
           echo "========== Daed =========="
           grep '^CONFIG_PACKAGE_daed=y' .config
@@ -249,68 +282,79 @@ jobs:
           echo "========== Tailscale =========="
           grep '^CONFIG_PACKAGE_tailscale=y' .config
           grep '^CONFIG_PACKAGE_luci-app-tailscale-community=y' .config
-          grep '^CONFIG_PACKAGE_luci-i18n-tailscale-community-zh-cn=y' .config || true
           grep '^CONFIG_PACKAGE_kmod-tun=y' .config
 
           echo "========== WiFi =========="
-          grep '^CONFIG_PACKAGE_kmod-mt7915e=y' .config || true
-          grep '^CONFIG_PACKAGE_wpad-basic-mbedtls=y' .config || true
+          grep '^CONFIG_PACKAGE_kmod-mt7915e=y' .config
+          grep '^CONFIG_PACKAGE_wpad-basic-mbedtls=y' .config
 
       #################################################
       # Verify package tree after defconfig
       #################################################
+
       - name: Verify Package Tree
         run: |
           set -euxo pipefail
+
           cd openwrt
+
           echo "========== Daed =========="
           test -f package/daed/Makefile
           test -f package/luci-app-daede/Makefile
+
           grep '^PKG_NAME:=daed' package/daed/Makefile
           grep '^PKG_VERSION:=' package/daed/Makefile
           grep '^PKG_RELEASE:=' package/daed/Makefile
+
           echo "========== Daed BTF dependency =========="
           grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config
           if grep -q '^CONFIG_KERNEL_DEBUG_INFO_REDUCED=y' .config; then
             echo "ERROR: reduced kernel debug info disables kernel BTF."
             exit 1
           fi
+
           if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_VMLINUX_BTF=y' .config; then
             echo "ERROR: obsolete Daed vmlinux-btf option is enabled."
             exit 1
           fi
+
           echo "OK: Daed BTF mode = integrated kernel BTF"
-          echo "========== Daed package location =========="
-          find package \
-            -path '*/daed/Makefile' \
-            -o -path '*/luci-app-daede/Makefile' \
-            | sort
+
           echo "========== Forbidden old feed Daed =========="
           if [ -e package/feeds/base/dae ]; then
             echo "ERROR: old feed package/feeds/base/dae still exists."
             exit 1
           fi
+
           echo "OK: old feed Daed removed."
 
       #################################################
       # Reset Go caches
       #################################################
+
       - name: Reset Go Build Cache
         run: |
           set -euxo pipefail
+
           cd openwrt
+
           rm -rf dl/go-mod-cache tmp/go-build
           mkdir -p dl/go-mod-cache tmp/go-build
+
           echo "Go build/module cache reset."
 
       #################################################
       # Download sources
       #################################################
+
       - name: Download Sources
         run: |
           set -euxo pipefail
+
           cd openwrt
+
           make download -j"$(nproc)"
+
           echo "========== Invalid Small Files =========="
           find dl -type f -size -1024c -print -exec ls -lh {} \; || true
           find dl -type f -size -1024c -delete
@@ -318,24 +362,32 @@ jobs:
       #################################################
       # Compile
       #################################################
+
       - name: Compile Firmware
         run: |
           set -euxo pipefail
+
           cd openwrt
+
           export CCACHE_DIR="$HOME/.ccache"
           export CCACHE_MAXSIZE=2G
+
           echo "========== BUILD ENV =========="
           echo "CPU Threads: $(nproc)"
           free -h
           df -h
+
           echo "========== Daed Makefile =========="
           grep '^PKG_NAME:=' package/daed/Makefile
           grep '^PKG_VERSION:=' package/daed/Makefile
           grep '^PKG_RELEASE:=' package/daed/Makefile
+
           echo "========== Start Full Compile =========="
           ccache --zero-stats || true
+
           BUILD_TIMEOUT_MIN=120
           echo "Full build timeout: ${BUILD_TIMEOUT_MIN} minutes"
+
           set +e
           timeout --foreground ${BUILD_TIMEOUT_MIN}m make \
             -j"$(nproc)" \
@@ -345,64 +397,76 @@ jobs:
             BPF_STRIP="$LLVM_STRIP_PATH"
           BUILD_RC=$?
           set -e
+
           if [ "$BUILD_RC" -eq 124 ]; then
             echo "========== FULL BUILD TIMEOUT =========="
             echo "ERROR: Full firmware build exceeded ${BUILD_TIMEOUT_MIN} minutes."
-            ps -eo pid,ppid,etime,%cpu,%mem,stat,cmd --sort=-%cpu | head -80 || true
-            free -h || true
             exit 124
           fi
+
           if [ "$BUILD_RC" -ne 0 ]; then
             echo "========== FULL BUILD FAILED =========="
             echo "ERROR: Top-level OpenWrt build failed with exit code $BUILD_RC."
             exit "$BUILD_RC"
           fi
+
           echo "========== CCACHE STATS =========="
           ccache --show-stats || true
 
       #################################################
       # Check firmware
       #################################################
+
       - name: Check Firmware
         run: |
           set -euxo pipefail
+
           cd openwrt
+
           TARGET_DIR="bin/targets/mediatek/filogic"
           test -d "$TARGET_DIR"
+
           echo "========== Firmware =========="
           ls -lah "$TARGET_DIR"
-          find "$TARGET_DIR" -maxdepth 1 -type f -printf '%f\n' | sort
+
           IMAGE_COUNT="$(
             find "$TARGET_DIR" -maxdepth 1 -type f \
               \( -name '*.itb' -o -name '*.img' -o -name '*.bin' -o -name '*.gz' -o -name '*.tar' \) \
               | wc -l
           )"
+
           if [ "$IMAGE_COUNT" -eq 0 ]; then
             echo "ERROR: No firmware image found."
             exit 1
           fi
+
           echo "Firmware images: $IMAGE_COUNT"
+
           echo "========== 360T7 LAYOUT IMAGES =========="
-          find "$TARGET_DIR" -maxdepth 1 -type f \
-            -name '*360t7*.itb' \
-            -printf '%f %s bytes\n' | sort
+          find "$TARGET_DIR" -maxdepth 1 -type f -name '*360t7*.itb' -printf '%f %s bytes\n' | sort
 
       #################################################
       # Organize firmware
       #################################################
+
       - name: Organize Firmware
         run: |
           set -euxo pipefail
+
           cd openwrt/bin/targets/mediatek/filogic
+
           rm -rf packages
+
           echo "FIRMWARE=$PWD" >> "$GITHUB_ENV"
           echo "FILE_DATE=$(date +"%Y%m%d%H%M")" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=iStoreOS-360T7-$(date +"%Y%m%d%H%M")" >> "$GITHUB_ENV"
+
           ls -lah
 
       #################################################
       # Upload artifact
       #################################################
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -414,39 +478,37 @@ jobs:
       #################################################
       # Generate release information
       #################################################
+
       - name: Generate Release Info
         run: |
           set -euxo pipefail
+
           cat > release.txt <<EOF
           iStoreOS 25.12 - Qihoo 360T7
 
-          Target:
-          MediaTek MT7981 / Filogic
-
-          Device:
-          Qihoo 360T7
+          Target: MediaTek MT7981 / Filogic
+          Device: Qihoo 360T7
 
           Network (board.d default):
-          LAN: lan1 lan2 lan3 @ 192.168.1.1
-          WAN: wan (DHCP)
+          - LAN: lan1 lan2 lan3 @ 192.168.1.1
+          - WAN: wan (DHCP)
 
-          Source:
-          iStoreOS $REPO_BRANCH
-
-          Included Packages:
-          - Daed
+          Included:
+          - Daed (daede)
           - MosDNS v5
           - Tailscale
-          - WiFi (mt7915e / MT7976C)
+          - WiFi mt7915e / MT7976C
 
-          Build Date:
-          $(date +"%Y-%m-%d %H:%M:%S")
+          Source: iStoreOS ${REPO_BRANCH}
+          Build Date: $(date +"%Y-%m-%d %H:%M:%S")
           EOF
+
           cat release.txt
 
       #################################################
       # Release
       #################################################
+
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         env:
