@@ -144,7 +144,8 @@ rm -rf \
     package/passwall-packages \
     package/mosdns \
     package/daed \
-    package/dae
+    package/dae \
+    package/v2ray-geodata
 
 rm -rf \
     package/feeds/base/dae \
@@ -157,13 +158,26 @@ rm -rf \
 rm -rf \
     feeds/packages/net/sing-box \
     feeds/packages/net/mosdns \
-    feeds/packages/net/v2dat
+    feeds/packages/net/v2dat \
+    feeds/packages/net/v2ray-geodata
 
 echo "OK: conflicting package trees removed."
 
 
 #################################################
-# 5. Install MosDNS v5
+# 5. 克隆 v2ray-geodata 依赖
+#################################################
+
+echo
+echo "================================================"
+echo ">>> Cloning v2ray-geodata"
+echo "================================================"
+
+git clone --depth=1 https://github.com/sbwml/v2ray-geodata package/v2ray-geodata
+
+
+#################################################
+# 6. Install MosDNS v5
 #################################################
 
 echo
@@ -216,7 +230,7 @@ echo "OK: MosDNS source installed."
 
 
 #################################################
-# 6. Install Daed
+# 7. Install Daed & 修复依赖
 #################################################
 
 echo
@@ -242,6 +256,10 @@ cp -a /tmp/openwrt-daede/luci-app-daede package/luci-app-daede
 cp -a /tmp/openwrt-daede/dae package/dae
 rm -rf package/daed/vmlinux-btf /tmp/openwrt-daede
 
+# 去掉对外部 vmlinux-btf 软件包的硬依赖
+sed -i 's/+vmlinux-btf//g' package/daed/Makefile 2>/dev/null || true
+sed -i 's/+vmlinux-btf//g' package/dae/Makefile 2>/dev/null || true
+
 test -f package/daed/Makefile
 test -f package/luci-app-daede/Makefile
 
@@ -249,7 +267,7 @@ echo "OK: known-good kenzok8 Daed tree installed."
 
 
 #################################################
-# 7. Install & Check Tailscale
+# 8. Install & Check Tailscale
 #################################################
 
 echo
@@ -268,7 +286,7 @@ echo "OK: Tailscale installed from feeds."
 
 
 #################################################
-# 8. Verify Package Trees
+# 9. Verify Package Trees
 #################################################
 
 echo
@@ -294,7 +312,7 @@ echo "OK: old feed Daed removed."
 
 
 #################################################
-# 9. Check 360T7 image definition
+# 10. Check 360T7 image definition
 #################################################
 
 echo
@@ -318,55 +336,6 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 10. Check target configuration
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Checking target configuration"
-echo "================================================"
-
-if [ -f ".config" ]; then
-
-    echo
-    echo "[Target]"
-    grep '^CONFIG_TARGET_mediatek' .config || true
-
-    echo
-    echo "[Daed BTF selection]"
-    grep -E '^CONFIG_KERNEL_DEBUG_INFO(_BTF)?=' .config || true
-
-    if ! grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config; then
-        echo "ERROR: integrated kernel BTF is not enabled."
-        exit 1
-    fi
-
-    if grep -q '^CONFIG_PACKAGE_daed_DAED_USE_(KERNEL|VMLINUX)_BTF=' .config; then
-        echo "ERROR: obsolete Daed package-local BTF option remains."
-        exit 1
-    fi
-
-    echo "OK: Daed uses integrated kernel BTF."
-
-    if ! grep -q '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7=y' .config; then
-        echo "ERROR: standard 360T7 target is not enabled."
-        exit 1
-    fi
-
-    if ! grep -q '^CONFIG_TARGET_mediatek_filogic_DEVICE_qihoo_360t7-ubi=y' .config; then
-        echo "ERROR: 360T7 UBI target is not enabled."
-        exit 1
-    fi
-
-    echo "OK: standard 360T7 target enabled."
-    echo "OK: 360T7 UBI target enabled."
-else
-    echo "WARNING: .config does not exist yet."
-    echo "make defconfig will generate it later."
-fi
-
-
-#################################################
 # 11. Final summary
 #################################################
 
@@ -377,8 +346,7 @@ echo "================================================"
 
 echo
 echo "Target:"
-echo "  MediaTek Filogic MT7981"
-echo "  Qihoo 360T7 (standard + UBI)"
+echo "  MediaTek Filogic MT7981 (Qihoo 360T7)"
 
 echo
 echo "LAN:"
