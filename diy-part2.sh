@@ -4,7 +4,7 @@ set -euo pipefail
 
 echo "================================================"
 echo " iStoreOS 25.12 / 360T7"
-echo " Daed + PassWall + MosDNS"
+echo " Daed + MosDNS"
 echo "================================================"
 
 echo
@@ -61,10 +61,14 @@ if grep -q "192\.168\.1\.1" "$CONFIG_GENERATE"; then
 fi
 
 if grep -q "192\.168\.6\.1" "$CONFIG_GENERATE"; then
-    echo "OK: LAN IP = 192.168.6.1"
+    echo "OK: LAN IP in config_generate verified as 192.168.6.1"
+else
+    echo "WARNING: 192.168.6.1 not explicitly found in config_generate, relying on uci-defaults."
+fi
+
 
 #################################################
-# 2b. Install 360T7 first-boot network repair
+# 2b. 检查并注入 360T7 首次开机网络修复 (UCI Defaults)
 #################################################
 
 echo
@@ -72,37 +76,46 @@ echo "================================================"
 echo ">>> Checking 360T7 network defaults"
 echo "================================================"
 
-NETWORK_FIX="$GITHUB_WORKSPACE/files/etc/uci-defaults/99-360t7-network"
+# 如果外部仓库没有挂载 files，则在源码树内直接动态生成，防止脚本报错中断
+UCI_DEF_DIR="package/base-files/files/etc/uci-defaults"
+mkdir -p "$UCI_DEF_DIR"
+NETWORK_FIX="$UCI_DEF_DIR/99-360t7-network"
 
-if [ ! -f "$NETWORK_FIX" ]; then
-    echo "ERROR: 360T7 network repair script not found."
-    exit 1
-fi
+cat > "$NETWORK_FIX" <<'EOF'
+#!/bin/sh
+uci -q batch <<MAKER
+set network.lan=interface
+set network.lan.proto='static'
+set network.lan.ipaddr='192.168.6.1'
+set network.lan.netmask='255.255.255.0'
+set network.lan.device='br-lan'
 
-if ! grep -q "list ports 'lan1'" "$NETWORK_FIX" ||    ! grep -q "list ports 'lan2'" "$NETWORK_FIX" ||    ! grep -q "list ports 'lan3'" "$NETWORK_FIX"; then
-    echo "ERROR: 360T7 LAN bridge ports are incomplete."
-    exit 1
-fi
+delete network.@device[0] 2>/dev/null || true
+set network.br_lan=device
+set network.br_lan.name='br-lan'
+set network.br_lan.type='bridge'
+add_list network.br_lan.ports='lan1'
+add_list network.br_lan.ports='lan2'
+add_list network.br_lan.ports='lan3'
 
-if ! grep -q "option ipaddr '192.168.6.1'" "$NETWORK_FIX"; then
-    echo "ERROR: 360T7 LAN IP is not 192.168.6.1."
-    exit 1
-fi
+set network.wan=interface
+set network.wan.device='wan'
+set network.wan.proto='dhcp'
 
-if ! grep -q "option device 'wan'" "$NETWORK_FIX" ||    ! grep -q "option proto 'dhcp'" "$NETWORK_FIX"; then
-    echo "ERROR: 360T7 WAN DHCP definition is missing."
-    exit 1
-fi
+set network.wan6=interface
+set network.wan6.device='wan'
+set network.wan6.proto='dhcpv6'
+MAKER
+uci commit network
+exit 0
+EOF
+chmod +x "$NETWORK_FIX"
 
 echo "OK: 360T7 first-boot network repair configured."
 echo "  LAN: br-lan = lan1 lan2 lan3"
 echo "  LAN IP: 192.168.6.1/24"
 echo "  DHCP: dnsmasq-full"
 echo "  WAN: wan / DHCP"
-else
-    echo "ERROR: Failed to set LAN IP to 192.168.6.1"
-    exit 1
-fi
 
 
 #################################################
@@ -132,13 +145,7 @@ rm -rf \
     package/passwall-packages \
     package/mosdns \
     package/daed \
-    package/daed
-
-#
-# iStoreOS 25.12 feeds may already provide dae/daed.
-# Remove the feed package links/directories before
-# installing the pinned QiuSimons version.
-#
+    package/dae
 
 rm -rf \
     package/feeds/base/dae \
@@ -157,41 +164,7 @@ echo "OK: conflicting package trees removed."
 
 
 #################################################
-# 5. Install PassWall
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Installing PassWall"
-echo "================================================"
-
-git clone \
-    --depth=1 \
-    --single-branch \
-    https://github.com/Openwrt-Passwall/openwrt-passwall.git \
-    package/passwall
-
-git clone \
-    --depth=1 \
-    --single-branch \
-    https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git \
-    package/passwall-packages
-
-if [ ! -d "package/passwall" ]; then
-    echo "ERROR: PassWall source not found."
-    exit 1
-fi
-
-if [ ! -d "package/passwall-packages" ]; then
-    echo "ERROR: PassWall packages source not found."
-    exit 1
-fi
-
-echo "OK: PassWall source installed."
-
-
-#################################################
-# 6. Install MosDNS v5
+# 5. Install MosDNS v5
 #################################################
 
 echo
@@ -216,11 +189,8 @@ mkdir -p \
     package/luci-app-mosdns \
     package/geo2txt
 
-cp -a /tmp/luci-app-mosdns/mosdns/. \
-    package/mosdns/
-
-cp -a /tmp/luci-app-mosdns/luci-app-mosdns/. \
-    package/luci-app-mosdns/
+cp -a /tmp/luci-app-mosdns/mosdns/. package/mosdns/
+cp -a /tmp/luci-app-mosdns/luci-app-mosdns/. package/luci-app-mosdns/
 
 if [ -d /tmp/luci-app-mosdns/geo2txt ]; then
     cp -a /tmp/luci-app-mosdns/geo2txt/. package/geo2txt/
@@ -247,7 +217,7 @@ echo "OK: MosDNS source installed."
 
 
 #################################################
-# 7. Install Daed
+# 6. Install Daed
 #################################################
 
 echo
@@ -255,7 +225,6 @@ echo "================================================"
 echo ">>> Installing Daed"
 echo "================================================"
 
-# Use the same known-good Daed/dae tree as the successful 360T7 build.
 rm -rf package/daed package/luci-app-daede package/dae /tmp/openwrt-daede
 
 git clone --depth=1 --single-branch \
@@ -279,27 +248,9 @@ test -f package/luci-app-daede/Makefile
 
 echo "OK: known-good kenzok8 Daed tree installed."
 
-#################################################
-# 8. Remove duplicate packages
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Removing duplicate PassWall packages"
-echo "================================================"
-
-rm -rf \
-    package/passwall-packages/mosdns \
-    package/passwall-packages/v2dat
-
-rm -rf \
-    package/passwall/sing-box
-
-echo "OK: duplicate packages removed."
-
 
 #################################################
-# 9. Verify Daed package tree
+# 7. Verify Daed package tree
 #################################################
 
 echo
@@ -331,40 +282,7 @@ echo "OK: Daed LuCI Makefile found."
 
 
 #################################################
-# 10. Verify PassWall
-#################################################
-
-echo
-echo "================================================"
-echo ">>> Verifying PassWall"
-echo "================================================"
-
-if ! find package/passwall \
-    -type f \
-    -name Makefile \
-    -print -quit |
-    grep -q .; then
-
-    echo "ERROR: PassWall Makefile not found."
-    exit 1
-fi
-
-if ! find package/passwall-packages \
-    -type f \
-    -name Makefile \
-    -print -quit |
-    grep -q .; then
-
-    echo "ERROR: PassWall packages Makefile not found."
-    exit 1
-fi
-
-echo "OK: PassWall Makefile found."
-echo "OK: PassWall packages Makefile found."
-
-
-#################################################
-# 11. Verify MosDNS
+# 8. Verify MosDNS
 #################################################
 
 echo
@@ -386,7 +304,7 @@ echo "OK: MosDNS Makefile found."
 
 
 #################################################
-# 12. Check old feed Daed
+# 9. Check old feed Daed
 #################################################
 
 echo
@@ -396,8 +314,6 @@ echo "================================================"
 
 if [ -e "package/feeds/base/dae" ]; then
     echo "ERROR: old package/feeds/base/dae still exists."
-    echo "The iStoreOS feed Daed package may conflict with"
-    echo "the pinned QiuSimons Daed package."
     exit 1
 fi
 
@@ -405,7 +321,7 @@ echo "OK: old feed Daed removed."
 
 
 #################################################
-# 13. Check 360T7 image definition
+# 10. Check 360T7 image definition
 #################################################
 
 echo
@@ -429,7 +345,7 @@ echo "OK: 360T7 image definition found."
 
 
 #################################################
-# 14. Check target configuration
+# 11. Check target configuration
 #################################################
 
 echo
@@ -447,9 +363,6 @@ if [ -f ".config" ]; then
     echo "[Daed BTF selection]"
     grep -E '^CONFIG_KERNEL_DEBUG_INFO(_BTF)?=' .config || true
 
-    # The Daed package no longer carries a package-local BTF selector.
-    # iStoreOS 25.12 provides BTF directly from the kernel, so the only
-    # authoritative selection is CONFIG_KERNEL_DEBUG_INFO_BTF=y.
     if ! grep -q '^CONFIG_KERNEL_DEBUG_INFO_BTF=y' .config; then
         echo "ERROR: integrated kernel BTF is not enabled."
         exit 1
@@ -481,14 +394,13 @@ if [ -f ".config" ]; then
     echo "OK: 360T7 UBI target enabled."
 
 else
-
     echo "WARNING: .config does not exist yet."
     echo "make defconfig will generate it later."
 fi
 
 
 #################################################
-# 15. Check eBPF / BTF configuration
+# 12. Check eBPF / BTF configuration
 #################################################
 
 echo
@@ -507,7 +419,7 @@ fi
 
 
 #################################################
-# 16. Check Daed package version
+# 13. Check Daed package version
 #################################################
 
 echo
@@ -552,7 +464,7 @@ echo "OK: Daed package metadata found."
 
 
 #################################################
-# 17. Third-party revisions
+# 14. Third-party revisions
 #################################################
 
 echo
@@ -566,20 +478,12 @@ git -C package/daed describe --tags --always || true
 git -C package/daed log -1 --oneline || true
 
 echo
-echo "[PassWall]"
-git -C package/passwall log -1 --oneline || true
-
-echo
-echo "[PassWall packages]"
-git -C package/passwall-packages log -1 --oneline || true
-
-echo
 echo "[MosDNS]"
 git -C package/mosdns log -1 --oneline || true
 
 
 #################################################
-# 18. Final package tree
+# 15. Final package tree
 #################################################
 
 echo
@@ -589,39 +493,14 @@ echo "================================================"
 
 echo
 echo "[Daed]"
-
 find package/daed \
     -maxdepth 3 \
     -type f \
     -name Makefile \
     -print
 
-
-echo
-echo "[PassWall]"
-
-find package/passwall \
-    -maxdepth 2 \
-    -type f \
-    -name Makefile \
-    -print \
-    | head -50
-
-
-echo
-echo "[PassWall packages]"
-
-find package/passwall-packages \
-    -maxdepth 3 \
-    -type f \
-    -name Makefile \
-    -print \
-    | head -100
-
-
 echo
 echo "[MosDNS]"
-
 find package/mosdns \
     -maxdepth 3 \
     -type f \
@@ -631,7 +510,7 @@ find package/mosdns \
 
 
 #################################################
-# 19. Final summary
+# 16. Final summary
 #################################################
 
 echo
@@ -652,7 +531,6 @@ echo "  192.168.6.1"
 echo
 echo "Packages:"
 echo "  Daed"
-echo "  PassWall"
 echo "  MosDNS"
 
 echo
